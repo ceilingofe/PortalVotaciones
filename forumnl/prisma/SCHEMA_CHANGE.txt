@@ -1,0 +1,19 @@
+// INSTRUCCIÓN: Agrega el campo `esAnonimo` al modelo MensajeAsamblea
+// en tu prisma/schema.prisma existente y corre `npm run db:push`
+//
+// Busca el modelo MensajeAsamblea y agrégale esta línea:
+//
+//   model MensajeAsamblea {
+//     id         String   @id @default(uuid())
+//     asambleaId String
+//     asamblea   Asamblea @relation(...)
+//     usuarioId  String
+//     usuario    Usuario  @relation(...)
+//     contenido  String
+//     esAnonimo  Boolean  @default(false)    <── AÑADIR ESTA LÍNEA
+//     createdAt  DateTime @default(now())
+//   }
+//
+// Después ejecuta:
+//   npm run db:push
+//   npm run dev

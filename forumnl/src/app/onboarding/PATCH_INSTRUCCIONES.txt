@@ -1,0 +1,39 @@
+'use client';
+
+// Sección modificada: solo el componente ConfirmarDatos
+// Busca en tu onboarding/page.tsx el componente ConfirmarDatos
+// y reemplaza únicamente el select de Sexo con este:
+
+// ANTES (3 opciones):
+// <select className="input" value={datos.sexo} onChange={...}>
+//   <option value="">— Seleccionar —</option>
+//   <option value="Hombre">Hombre</option>
+//   <option value="Mujer">Mujer</option>
+// </select>
+
+// DESPUÉS (5 opciones, reemplaza exactamente ese bloque):
+export const SexoSelect = ({ value, onChange, disabled }: { value: string; onChange: (v: string) => void; disabled?: boolean }) => (
+  <select
+    className="input"
+    value={value}
+    onChange={e => onChange(e.target.value)}
+    disabled={disabled}
+  >
+    <option value="">— Seleccionar —</option>
+    <option value="Hombre">Hombre</option>
+    <option value="Mujer">Mujer</option>
+    <option value="No binario">No binario</option>
+    <option value="Prefiero no responder">Prefiero no responder</option>
+  </select>
+);
+
+// TAMBIÉN: en la misma página de onboarding, el campo de
+// fechaNacimiento debe usar DateInputDMY en lugar de <input type="date">
+// Si aún no lo has reemplazado, hazlo ahora:
+//
+// import { DateInputDMY } from '@/components/DateInputDMY';
+//
+// <DateInputDMY
+//   value={datos.fechaNacimiento || ''}
+//   onChange={v => onActualizar({ ...datos, fechaNacimiento: v })}
+// />

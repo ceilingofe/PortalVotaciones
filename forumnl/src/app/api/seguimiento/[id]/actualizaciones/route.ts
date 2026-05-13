@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { usuarioActual } from '@/lib/auth/session';
-import { fmtFechaHora } from '@/lib/dates';
+import { subirArchivo, obtenerUrlPublica } from '@/lib/storage/supabase';
+
+const MIME_IMAGENES  = ['image/jpeg','image/png','image/gif','image/webp'];
+const EXT_DOCUMENTOS = ['.pdf','.doc','.docx','.xlsx','.xls','.ppt','.pptx','.txt'];
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const usuario = await usuarioActual();
@@ -15,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({
     ok: true,
-    actualizaciones: actualizaciones.map((a) => ({
+    actualizaciones: actualizaciones.map(a => ({
       id:          a.id,
       mensaje:     a.mensaje,
       imagenPath:  a.imagenPath,
@@ -39,83 +42,60 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const tipo           = (formData.get('tipo')    as string) || 'avance';
   const nuevoEstatus   = (formData.get('estatus') as string) || null;
   const presupuestoRaw = formData.get('presupuesto') as string | null;
-  const presupuesto    = presupuestoRaw && presupuestoRaw.trim() !== '' ? parseFloat(presupuestoRaw) : null;
-  const imagen         = formData.get('imagen') as File | null;
+  const presupuesto    = presupuestoRaw?.trim() ? parseFloat(presupuestoRaw) : null;
+  const archivo        = formData.get('archivo') as File | null;  // imagen O documento
 
-  if (!mensaje) {
-    return NextResponse.json({ ok: false, message: 'El mensaje es requerido.' }, { status: 400 });
-  }
+  if (!mensaje) return NextResponse.json({ ok: false, message: 'El mensaje es requerido.' }, { status: 400 });
 
-  // Leer el seguimiento actual (necesitamos presupuestoEjecutado para sumar)
   const segActual = await prisma.seguimiento.findUnique({
     where: { id: params.id },
     include: { asamblea: { include: { fraccionamiento: true } } },
   });
   if (!segActual) return NextResponse.json({ ok: false }, { status: 404 });
 
-  let imagenPath: string | null = null;
-  if (imagen && imagen.size > 0) {
+  // Guardar archivo (imagen o documento)
+  let archivoPath: string | null = null;
+  if (archivo && archivo.size > 0 && archivo.size < 20 * 1024 * 1024) {
     const { randomUUID } = await import('crypto');
-    const ext = imagen.name.split('.').pop() || 'jpg';
-    imagenPath = `/uploads/seguimiento/${randomUUID()}.${ext}`;
+    const ext = '.' + (archivo.name.split('.').pop() || 'bin').toLowerCase();
+    const esImagen = MIME_IMAGENES.includes(archivo.type) || ['.jpg','.jpeg','.png','.gif','.webp'].includes(ext);
+    const carpeta  = esImagen ? 'seguimiento' : 'seguimiento/docs';
+    const storagePath = `${carpeta}/${randomUUID()}${ext}`;
+    const bucket = esImagen ? 'reportes' : 'publico';
+    await subirArchivo(bucket, storagePath, archivo, archivo.type);
+    archivoPath = await obtenerUrlPublica(bucket, storagePath);
   }
 
-  const EMOJIS: Record<string, string> = {
-    avance: '🔄', inicio: '🚀', completado: '✅',
-    incidencia: '⚠️', presupuesto: '💰', foto: '📸',
-  };
-  const LABELS: Record<string, string> = {
-    avance: 'Avance', inicio: 'Inicio de actividades',
-    completado: 'Completado', incidencia: 'Incidencia',
-    presupuesto: 'Asignación de presupuesto', foto: 'Evidencia fotográfica',
-  };
+  const EMOJIS: Record<string,string> = { avance:'🔄', inicio:'🚀', completado:'✅', incidencia:'⚠️', presupuesto:'💰', foto:'📸', documento:'📄' };
 
-  // ── TRANSACCIÓN INTERACTIVA (evita el bug NULL + number = NULL) ──────
   let segActualizado: any;
-
-  await prisma.$transaction(async (tx) => {
-    // 1. Crear la actualización
+  await prisma.$transaction(async tx => {
     await tx.actualizacionSeguimiento.create({
       data: {
         seguimientoId: params.id,
-        autorId:   usuario.id,
+        autorId:       usuario.id,
         mensaje,
-        imagenPath,
+        imagenPath:    archivoPath,
         presupuesto,
         tipo,
       },
     });
 
-    // 2. Actualizar Seguimiento si hay cambios
-    const hayActualizacion = nuevoEstatus || (presupuesto !== null && presupuesto > 0);
-    if (hayActualizacion) {
-      const updateData: any = {};
-      if (nuevoEstatus) updateData.estatus = nuevoEstatus;
-
-      if (presupuesto !== null && presupuesto > 0) {
-        // ── FIX CRÍTICO: leer valor actual para evitar NULL + number = NULL ──
-        // En PostgreSQL: NULL + 2000 = NULL — por eso increment falla si el campo es null
-        const valorActual = segActual.presupuestoEjecutado ?? 0;
-        updateData.presupuestoEjecutado = valorActual + presupuesto;
-      }
-
-      await tx.seguimiento.update({
-        where: { id: params.id },
-        data: updateData,
-      });
+    const updateData: any = {};
+    if (nuevoEstatus) updateData.estatus = nuevoEstatus;
+    if (presupuesto && presupuesto > 0) {
+      const valorActual = segActual.presupuestoEjecutado ?? 0;
+      updateData.presupuestoEjecutado = valorActual + presupuesto;
+    }
+    if (Object.keys(updateData).length > 0) {
+      await tx.seguimiento.update({ where: { id: params.id }, data: updateData });
     }
 
-    // 3. Leer seguimiento actualizado para devolver al cliente
     segActualizado = await tx.seguimiento.findUnique({
       where: { id: params.id },
-      select: {
-        estatus: true,
-        presupuestoTotal: true,
-        presupuestoEjecutado: true,
-      },
+      select: { estatus: true, presupuestoTotal: true, presupuestoEjecutado: true },
     });
 
-    // 4. Post en el feed con imagen
     const emoji = EMOJIS[tipo] || '🔄';
     await tx.post.create({
       data: {
@@ -124,18 +104,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         tipo: 'auto_seguimiento',
         titulo: `${emoji} Seguimiento: ${segActual.opcionNombre}`,
         contenido: [
-          `📋 Actualización en problema priorizado:`,
-          `🎯 ${segActual.opcionNombre} (Prioridad #${segActual.prioridad})`,
+          `Actualización en problema priorizado: ${segActual.opcionNombre} (Prioridad #${segActual.prioridad})`,
           ``,
-          `${LABELS[tipo] || tipo}: ${mensaje}`,
-          presupuesto && presupuesto > 0
-            ? `💰 Monto registrado: $${presupuesto.toLocaleString('es-MX')} MXN`
-            : '',
-          nuevoEstatus ? `📌 Estatus actualizado: ${nuevoEstatus}` : '',
-          ``,
-          `Ver seguimiento completo en Histórico.`,
+          `${tipo}: ${mensaje}`,
+          presupuesto && presupuesto > 0 ? `Monto: $${presupuesto.toLocaleString('es-MX')} MXN` : '',
+          nuevoEstatus ? `Estatus: ${nuevoEstatus}` : '',
         ].filter(Boolean).join('\n').trim(),
-        imagenPath,
+        imagenPath: archivoPath,
         asambleaId: segActual.asambleaId,
         seguimientoId: params.id,
       },

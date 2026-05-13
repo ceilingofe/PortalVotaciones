@@ -338,6 +338,7 @@ model MensajeAsamblea {
   usuarioId  String
   usuario    Usuario  @relation(fields: [usuarioId], references: [id])
   contenido  String
+  esAnonimo  Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   @@index([asambleaId, createdAt])

@@ -8,7 +8,7 @@ const nextConfig = {
     ],
   },
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'pdfkit'],
+    serverComponentsExternalPackages: ['@prisma/client', 'pdfkit', 'canvas'],
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

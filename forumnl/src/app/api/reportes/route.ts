@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma';
 import { usuarioActual } from '@/lib/auth/session';
 import { CategoriaReporte, EstatusReporte } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { subirArchivo, obtenerUrlPublica } from '@/lib/storage/supabase';
 
 const EMOJI_CAT: Record<string, string> = {
   SEGURIDAD: '🛡️', AGUA_DRENAJE: '💧', PARQUES: '🌳',
@@ -71,7 +72,9 @@ export async function POST(req: NextRequest) {
   let imagenPath: string | null = null;
   if (imagen && imagen.size > 0 && imagen.size < 10 * 1024 * 1024) {
     const ext = imagen.name.split('.').pop() || 'jpg';
-    imagenPath = `/uploads/reportes/${randomUUID()}.${ext}`;
+    const storagePath = `${randomUUID()}.${ext}`;
+    await subirArchivo('reportes', storagePath, imagen, imagen.type);
+    imagenPath = await obtenerUrlPublica('reportes', storagePath);
   }
 
   const fraccionamientoId = usuario.vivienda.fraccionamientoId;

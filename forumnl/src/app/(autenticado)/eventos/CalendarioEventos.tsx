@@ -7,75 +7,49 @@ import { ReabrirDesdeListaBtn } from './ReabrirDesdeListaBtn';
 import { EliminarEventoBtn } from './EliminarEventoBtn';
 import { fmtHora12, fmtClaveDia, fmtDiaLargo } from '@/lib/dates';
 
-const DIAS_CORTOS  = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
-const MESES        = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DIAS_CORTOS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
+const MESES       = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-interface EventoResumen {
-  id: string;
-  titulo: string;
-  descripcion: string;
-  tipo: string;
-  estatus: string;
-  jornadaInicio: string;
-  jornadaFin: string;
-  totalPadron: number;
-  totalVotos: number;
-  esModerador: boolean;
-  esAdmin: boolean;
+export interface EventoResumen {
+  id: string; titulo: string; descripcion: string; tipo: string; estatus: string;
+  jornadaInicio: string; jornadaFin: string; totalPadron: number; totalVotos: number;
+  esModerador: boolean; esAdmin: boolean;
 }
 
-const TIPO_EMOJI: Record<string, string> = {
-  ELECCION_PLANILLA:    '🗳️',
-  PRIORIZACION_PUNTAJE: '📊',
-  ASAMBLEA_DELIBERATIVA:'💬',
-  SI_NO:                '✋',
-  OTRO:                 '📋',
-};
-const TIPO_LABEL: Record<string, string> = {
-  ELECCION_PLANILLA:    'Elección',
-  PRIORIZACION_PUNTAJE: 'Priorización',
-  ASAMBLEA_DELIBERATIVA:'Asamblea',
-  SI_NO:                'Sí / No',
-  OTRO:                 'Proceso',
-};
+const TIPO_EMOJI: Record<string, string>  = { ELECCION_PLANILLA:'🗳️', PRIORIZACION_PUNTAJE:'📊', ASAMBLEA_DELIBERATIVA:'💬', SI_NO:'✋', OTRO:'📋' };
+const TIPO_LABEL: Record<string, string>  = { ELECCION_PLANILLA:'Elección', PRIORIZACION_PUNTAJE:'Priorización', ASAMBLEA_DELIBERATIVA:'Asamblea', SI_NO:'Sí / No', OTRO:'Proceso' };
+const FRANJA: Record<string, string>      = { ELECCION_PLANILLA:'linear-gradient(90deg,#F5C518,#E6B800)', PRIORIZACION_PUNTAJE:'linear-gradient(90deg,#818CF8,#6366F1)', ASAMBLEA_DELIBERATIVA:'linear-gradient(90deg,#34D399,#10B981)' };
 
-function diasDelMes(a: number, m: number)    { return new Date(a, m + 1, 0).getDate(); }
-function primerDia(a: number, m: number)     { const d = new Date(a, m, 1).getDay(); return d === 0 ? 6 : d - 1; }
+function diasDelMes(a: number, m: number) { return new Date(a, m+1, 0).getDate(); }
+function primerDia(a: number, m: number)  { const d = new Date(a, m, 1).getDay(); return d === 0 ? 6 : d-1; }
 
 export function CalendarioEventos({ eventos }: { eventos: EventoResumen[] }) {
   const hoy = new Date();
   const [mes, setMes]   = useState(hoy.getMonth());
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [diaFiltro, setDiaFiltro] = useState<string | null>(null);
+  const [hoverDia, setHoverDia]   = useState<string | null>(null);
 
-  function mesAnterior() { if (mes === 0) { setMes(11); setAnio(a => a - 1); } else setMes(m => m - 1); }
-  function mesSiguiente(){ if (mes === 11){ setMes(0);  setAnio(a => a + 1); } else setMes(m => m + 1); }
+  function mesAnterior()  { if (mes===0) { setMes(11); setAnio(a=>a-1); } else setMes(m=>m-1); }
+  function mesSiguiente() { if (mes===11){ setMes(0);  setAnio(a=>a+1); } else setMes(m=>m+1); }
 
-  // Índice de eventos por día
   const porDia: Record<string, EventoResumen[]> = {};
-  for (const ev of eventos) {
-    const k = fmtClaveDia(ev.jornadaInicio);
-    if (!porDia[k]) porDia[k] = [];
-    porDia[k].push(ev);
-  }
+  for (const ev of eventos) { const k=fmtClaveDia(ev.jornadaInicio); if(!porDia[k]) porDia[k]=[]; porDia[k].push(ev); }
 
-  const totalDias  = diasDelMes(anio, mes);
-  const offset     = primerDia(anio, mes);
-  const filas      = Math.ceil((offset + totalDias) / 7);
+  const totalDias = diasDelMes(anio, mes);
+  const offset    = primerDia(anio, mes);
+  const filas     = Math.ceil((offset + totalDias) / 7);
 
-  const eventosOrdenados = [...eventos].sort((a, b) => a.jornadaInicio.localeCompare(b.jornadaInicio));
-  const eventosMostrar   = diaFiltro
-    ? (porDia[diaFiltro] ?? [])
-    : eventosOrdenados;
+  const eventosOrdenados = [...eventos].sort((a,b) => a.jornadaInicio.localeCompare(b.jornadaInicio));
+  const eventosMostrar   = diaFiltro ? (porDia[diaFiltro] ?? []) : eventosOrdenados;
 
-  // Agrupar por fecha
   const grupos: { key: string; label: string; items: EventoResumen[] }[] = [];
   const vistas = new Set<string>();
   for (const ev of eventosMostrar) {
     const k = fmtClaveDia(ev.jornadaInicio);
     if (!vistas.has(k)) {
       vistas.add(k);
-      grupos.push({ key: k, label: fmtDiaLargo(ev.jornadaInicio), items: eventosMostrar.filter(e => fmtClaveDia(e.jornadaInicio) === k) });
+      grupos.push({ key: k, label: fmtDiaLargo(ev.jornadaInicio), items: eventosMostrar.filter(e=>fmtClaveDia(e.jornadaInicio)===k) });
     }
   }
 
@@ -94,30 +68,67 @@ export function CalendarioEventos({ eventos }: { eventos: EventoResumen[] }) {
         </div>
 
         <div className="grid grid-cols-7 gap-y-1">
-          {Array.from({ length: filas * 7 }).map((_, idx) => {
+          {Array.from({ length: filas*7 }).map((_, idx) => {
             const num = idx - offset + 1;
             if (num < 1 || num > totalDias) return <div key={idx} />;
 
-            const k = `${anio}-${String(mes + 1).padStart(2,'0')}-${String(num).padStart(2,'0')}`;
-            const tieneEvt  = !!porDia[k];
-            const esHoy     = num === hoy.getDate() && mes === hoy.getMonth() && anio === hoy.getFullYear();
-            const esSel     = diaFiltro === k;
-            const cuantos   = porDia[k]?.length ?? 0;
+            const k = `${anio}-${String(mes+1).padStart(2,'0')}-${String(num).padStart(2,'0')}`;
+            const tieneEvt = !!porDia[k];
+            const esHoy    = num===hoy.getDate() && mes===hoy.getMonth() && anio===hoy.getFullYear();
+            const esSel    = diaFiltro === k;
+            const cuantos  = porDia[k]?.length ?? 0;
+            const esHover  = hoverDia === k;
 
             return (
-              <button key={idx}
-                onClick={() => tieneEvt && setDiaFiltro(esSel ? null : k)}
-                disabled={!tieneEvt}
-                className={`flex flex-col items-center justify-center h-10 w-full rounded-xl text-sm font-semibold transition-all
-                  ${esSel ? 'ring-2 ring-[#F5C518] text-[#1A1A1A]' : ''}
-                  ${tieneEvt && !esSel ? 'cursor-pointer hover:scale-105 text-[#1A1A1A]' : ''}
-                  ${!tieneEvt ? 'text-[#9CA3AF] cursor-default' : ''}
-                  ${esHoy && !tieneEvt ? 'underline' : ''}`}
-                style={tieneEvt ? { background: esSel ? 'linear-gradient(135deg,#F5C518,#E6B800)' : 'linear-gradient(135deg,#FFFBEB,#FEF3C7)' } : {}}
-              >
-                <span>{num}</span>
-                {tieneEvt && cuantos > 1 && <span className="text-[8px] font-black text-[#92400E]">{cuantos}</span>}
-              </button>
+              <div key={idx} className="relative flex justify-center">
+                <button
+                  onClick={() => tieneEvt && setDiaFiltro(esSel ? null : k)}
+                  onMouseEnter={() => tieneEvt && setHoverDia(k)}
+                  onMouseLeave={() => setHoverDia(null)}
+                  disabled={!tieneEvt}
+                  className={`flex flex-col items-center justify-center h-10 w-full rounded-xl text-sm font-semibold transition-all
+                    ${esSel ? 'ring-2 ring-[#F5C518]' : ''}
+                    ${tieneEvt && !esSel ? 'cursor-pointer hover:scale-105' : ''}
+                    ${!tieneEvt ? 'text-[#9CA3AF] cursor-default' : 'text-[#1A1A1A]'}`}
+                  style={tieneEvt ? { background: esSel ? 'linear-gradient(135deg,#F5C518,#E6B800)' : 'linear-gradient(135deg,#FFFBEB,#FEF3C7)' } : {}}
+                >
+                  <span className={esHoy && !tieneEvt ? 'underline' : ''}>{num}</span>
+                  {tieneEvt && cuantos > 1 && <span className="text-[8px] font-black text-[#92400E]">{cuantos}</span>}
+                </button>
+
+                {/* ── HOVER TOOLTIP ── */}
+                {esHover && tieneEvt && (
+                  <div
+                    className="absolute bottom-full mb-2 z-50 w-52 bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] overflow-hidden pointer-events-none"
+                    style={{ left: '50%', transform: 'translateX(-50%)' }}
+                  >
+                    {/* Flecha */}
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-r border-b border-[#E5E7EB] rotate-45" />
+                    {/* Encabezado */}
+                    <div className="px-3 py-2 text-xs font-bold text-[#1A1A1A] border-b border-[#F9FAFB]" style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)' }}>
+                      {new Date(k + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </div>
+                    {/* Lista de eventos */}
+                    <div className="p-2 space-y-1.5 max-h-40 overflow-y-auto">
+                      {porDia[k].map(ev => {
+                        const cerrado = ev.estatus === 'CERRADA' || ev.estatus === 'CON_ACTA';
+                        return (
+                          <div key={ev.id} className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: cerrado ? '#9CA3AF' : '#F5C518' }} />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-[#1A1A1A] truncate leading-tight">{ev.titulo}</p>
+                              <p className="text-[10px] text-[#9CA3AF]">
+                                {TIPO_EMOJI[ev.tipo]} {fmtHora12(ev.jornadaInicio)} – {fmtHora12(ev.jornadaFin)}
+                                {cerrado && ' · Cerrado'}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -129,7 +140,7 @@ export function CalendarioEventos({ eventos }: { eventos: EventoResumen[] }) {
           </div>
           {diaFiltro && (
             <button onClick={() => setDiaFiltro(null)} className="text-xs text-[#F5C518] font-semibold hover:underline ml-auto">
-              Ver todos los eventos
+              Ver todos
             </button>
           )}
         </div>
@@ -167,93 +178,54 @@ function TarjetaEvento({ evento: a }: { evento: EventoResumen }) {
   const diffMs = fin.getTime() - Date.now();
   const diffH  = Math.round(diffMs / 3600000);
   const diffD  = Math.round(diffMs / 86400000);
-  const tiempoRestante = diffMs < 0 ? 'Finalizado'
-    : diffH < 1    ? 'Cierra pronto'
-    : diffH < 24   ? `Cierra en ${diffH}h`
-    : `Cierra en ${diffD}d`;
-
+  const tiempoRestante = diffMs < 0 ? 'Finalizado' : diffH < 1 ? 'Cierra pronto' : diffH < 24 ? `Cierra en ${diffH}h` : `Cierra en ${diffD}d`;
   const pct = a.totalPadron > 0 ? Math.round((a.totalVotos / a.totalPadron) * 100) : 0;
-
-  const FRANJA: Record<string, string> = {
-    ELECCION_PLANILLA:    'linear-gradient(90deg,#F5C518,#E6B800)',
-    PRIORIZACION_PUNTAJE: 'linear-gradient(90deg,#818CF8,#6366F1)',
-    ASAMBLEA_DELIBERATIVA:'linear-gradient(90deg,#34D399,#10B981)',
-  };
 
   return (
     <article className={`card flex flex-col transition-all ${estaCerrada ? 'opacity-75' : 'hover:shadow-md hover:-translate-y-0.5'}`}>
       <div className="h-1.5 rounded-t-2xl" style={{ background: FRANJA[a.tipo] ?? 'linear-gradient(90deg,#9CA3AF,#6B7280)' }} />
       <div className="p-5 flex flex-col flex-1">
-
-        {/* Badges + botones admin en la misma fila */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex flex-wrap gap-1.5">
-            <span className="badge badge-gray text-xs">{TIPO_EMOJI[a.tipo]} {TIPO_LABEL[a.tipo] ?? a.tipo}</span>
-            {estaCerrada
-              ? <span className="badge badge-gray text-xs"><Lock className="w-3 h-3 mr-1" />Cerrada</span>
-              : <span className="badge badge-success text-xs">● Abierta</span>}
+            <span className="badge badge-gray text-xs">{TIPO_EMOJI[a.tipo]} {TIPO_LABEL[a.tipo]??a.tipo}</span>
+            {estaCerrada ? <span className="badge badge-gray text-xs"><Lock className="w-3 h-3 mr-1"/>Cerrada</span> : <span className="badge badge-success text-xs">● Abierta</span>}
           </div>
-          {/* Botones admin */}
-          {a.esAdmin && (
-            <div className="flex items-center gap-1 shrink-0">
-              <EliminarEventoBtn asambleaId={a.id} titulo={a.titulo} />
-            </div>
-          )}
+          {a.esAdmin && <EliminarEventoBtn asambleaId={a.id} titulo={a.titulo} />}
         </div>
 
         <h2 className="font-extrabold text-base text-[#1A1A1A] mb-1 leading-tight">{a.titulo}</h2>
         <p className="text-xs text-[#6B7280] mb-3 flex-1 line-clamp-2">{a.descripcion}</p>
 
-        {/* Horario */}
         <div className="flex items-center gap-2 text-xs font-medium text-[#374151] bg-[#F9FAFB] rounded-xl px-3 py-2 mb-3">
           <Clock className="w-3.5 h-3.5 text-[#F5C518] shrink-0" />
           <span>Apertura: <strong>{fmtHora12(a.jornadaInicio)}</strong></span>
           <span className="text-[#D1D5DB]">·</span>
           <span>Cierre: <strong>{fmtHora12(a.jornadaFin)}</strong></span>
-          {!estaCerrada && (
-            <>
-              <span className="text-[#D1D5DB]">·</span>
-              <span className={`font-bold ${diffMs < 3600000 ? 'text-red-600' : diffMs < 86400000 ? 'text-orange-500' : 'text-[#9CA3AF]'}`}>
-                {tiempoRestante}
-              </span>
-            </>
-          )}
+          {!estaCerrada && (<><span className="text-[#D1D5DB]">·</span><span className={`font-bold ${diffMs<3600000?'text-red-600':diffMs<86400000?'text-orange-500':'text-[#9CA3AF]'}`}>{tiempoRestante}</span></>)}
         </div>
 
-        {/* Participación — solo moderadores */}
         {a.esModerador && a.totalPadron > 0 && (
           <div className="mb-3">
             <div className="flex justify-between text-[10px] text-[#9CA3AF] mb-1">
-              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{a.totalVotos}/{a.totalPadron} votos</span>
+              <span className="flex items-center gap-1"><Users className="w-3 h-3"/>{a.totalVotos}/{a.totalPadron}</span>
               <span className="font-bold text-[#F5C518]">{pct}%</span>
             </div>
             <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,#F5C518,#E6B800)' }} />
+              <div className="h-full rounded-full" style={{ width:`${pct}%`, background:'linear-gradient(90deg,#F5C518,#E6B800)' }} />
             </div>
           </div>
         )}
 
-        {/* Botones de acción */}
         <div className="flex gap-2 mt-auto">
-          {estaCerrada ? (
-            <>
-              <Link href="/historico" className="btn-outline flex-1 justify-center btn-sm text-xs">Ver actas</Link>
-              {a.esAdmin && <ReabrirDesdeListaBtn asambleaId={a.id} />}
-            </>
-          ) : a.tipo === 'ASAMBLEA_DELIBERATIVA' ? (
-            <Link href={`/eventos/${a.id}/asamblea`} className="btn-yellow flex-1 justify-center">
-              <MessageSquare className="w-4 h-4" /> Participar
-            </Link>
-          ) : (
-            <>
-              <Link href={`/eventos/${a.id}/votar`} className="btn-yellow flex-1 justify-center">
-                <Vote className="w-4 h-4" /> Votar
-              </Link>
-              <Link href={`/eventos/${a.id}/informate`} className="btn-outline flex-1 justify-center">
-                <Info className="w-4 h-4" /> Infórmate
-              </Link>
-            </>
-          )}
+          {estaCerrada ? (<>
+            <Link href="/historico" className="btn-outline flex-1 justify-center btn-sm text-xs">Ver actas</Link>
+            {a.esAdmin && <ReabrirDesdeListaBtn asambleaId={a.id} />}
+          </>) : a.tipo === 'ASAMBLEA_DELIBERATIVA' ? (
+            <Link href={`/eventos/${a.id}/asamblea`} className="btn-yellow flex-1 justify-center"><MessageSquare className="w-4 h-4" /> Participar</Link>
+          ) : (<>
+            <Link href={`/eventos/${a.id}/votar`} className="btn-yellow flex-1 justify-center"><Vote className="w-4 h-4" /> Votar</Link>
+            <Link href={`/eventos/${a.id}/informate`} className="btn-outline flex-1 justify-center"><Info className="w-4 h-4" /> Infórmate</Link>
+          </>)}
         </div>
       </div>
     </article>

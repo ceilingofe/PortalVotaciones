@@ -5,300 +5,167 @@ import { usuarioActual } from '@/lib/auth/session';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// ── Knowledge base extraída de los documentos del IEEPCNL ──────────────
 const CONOCIMIENTO_IEEPCNL = `
-CONOCIMIENTO OFICIAL DEL IEEPCNL Y PROCESOS ELECTORALES COMUNITARIOS:
+KNOWLEDGE BASE — IEEPCNL AND COMMUNITY ELECTORAL PROCESSES:
 
-=== QUÉ ES EL IEEPCNL ===
-El Instituto Estatal Electoral y de Participación Ciudadana de Nuevo León (IEEPCNL) es el organismo público local electoral encargado de organizar las elecciones locales en la entidad y de impulsar la cultura democrática y la participación ciudadana. Su función es que la competencia por cargos locales se realice con reglas claras, procedimientos verificables y condiciones de equidad.
+WHAT IS IEEPCNL: Instituto Estatal Electoral y de Participacion Ciudadana de Nuevo Leon. Organizes LOCAL elections in Nuevo Leon and promotes civic participation. INE = federal; IEEPCNL = state/local.
 
-Diferencia INE vs IEEPCNL:
-- INE: organiza elecciones FEDERALES, integra el Registro Federal de Electores y emite la Credencial para Votar.
-- IEEPCNL: organiza elecciones LOCALES en Nuevo León (Gubernatura, Diputaciones Locales, Ayuntamientos) e impulsa mecanismos locales de participación ciudadana y educación cívica.
+PARTICIPATION MECHANISMS: Consulta Ciudadana, Consulta Popular, Iniciativa Popular, Revocacion de Mandato, Presupuesto Participativo, Contralorias Sociales.
 
-Consejo General: es el máximo órgano de dirección. Integrado por una Presidencia, seis Consejerías Electorales y una Secretaría Ejecutiva. Las Consejerías deliberan y votan los acuerdos.
+VOTING PROCESS STAGES: Convocatoria (announcement) → Padron (voter list) → Opciones (options/planillas) → Socializacion → Jornada (voting day) → Computo (count) → Acta y publicacion → Seguimiento.
 
-=== MECANISMOS DE PARTICIPACIÓN CIUDADANA ===
-1. Consulta Ciudadana: mecanismo para conocer la opinión de ciudadanía residente sobre un acto, obra o decisión pública.
-2. Consulta Popular: mecanismo de votación sobre actos o decisiones públicas de trascendencia social.
-3. Iniciativa Popular: derecho ciudadano de proponer leyes o modificaciones a la legislación.
-4. Revocación de Mandato: proceso por el cual la ciudadanía puede decidir si un funcionario electo continúa en el cargo.
-5. Presupuesto Participativo: mecanismo donde la comunidad decide en qué se invierte parte del presupuesto público.
-6. Contralorías Sociales: participación ciudadana para vigilar la correcta ejecución de programas, obras o recursos públicos.
+MESA DIRECTIVA ELECTION: One vote per registered housing unit. Candidates must live in the fraccionamiento. Positions: Presidencia, Secretaria, Tesoreria, Vocalia Seguridad, Vocalia Mantenimiento. Method: secret ballot by planilla, simple majority wins.
 
-=== PROCESOS COMUNITARIOS (JUNTAS VECINALES Y FRACCIONAMIENTOS) ===
-En el ámbito vecinal, muchas decisiones no requieren una elección constitucional pero sí necesitan reglas parecidas:
-convocatoria, padrón de participantes, información suficiente, votación o deliberación ordenada, acta y seguimiento.
+PRIORITIZATION: 2 points for main priority, 1 point for secondary. Results ordered by total points. Follow-up created per problem.
 
-Situaciones comunes que se resuelven con votación vecinal:
-- Seguridad vecinal: solicitar rondines, instalar cámaras, contratar vigilancia.
-- Mantenimiento de áreas comunes: parques, juegos infantiles, canchas.
-- Alumbrado: calles oscuras, lámparas fundidas.
-- Agua y drenaje: fugas, drenaje colapsado, encharcamientos.
-- Uso de espacios comunes: salón, palapa, canchas.
-- Elección de mesa directiva: presidencia, tesorería, secretaría, vocalías.
-- Cuotas vecinales: aprobación de montos y rendición de cuentas.
+MINIMUM TRUST CRITERIA: Legality, clarity, verifiable voter list, equal information, impartiality, VOTE SECRECY (nobody can know how an individual voted), auditable count, publication, follow-up.
 
-=== PROCEDIMIENTOS ESTÁNDAR DE VOTACIÓN ===
-Etapas de una votación comunitaria válida:
-1. CONVOCATORIA: publicar tema, fecha, lugar, modalidad, reglas y quiénes pueden votar. Evidencia mínima: convocatoria con fecha y responsable.
-2. PADRÓN: definir criterios de elegibilidad (vivienda, residencia, propiedad). Evidencia: padrón cerrado con folio.
-3. OPCIONES: registrar propuestas, planillas o alternativas. Evidencia: formato de registro.
-4. SOCIALIZACIÓN: informar sobre cada opción. Evidencia: ficha comparativa o micrositio.
-5. JORNADA: instalar mesa, verificar identidad, emitir voto, registrar incidencias.
-6. CÓMPUTO: contar votos conforme a reglas aprobadas. Evidencia: hoja de conteo o registros digitales.
-7. ACTA Y PUBLICACIÓN: publicar resultado y acuerdos de seguimiento. Evidencia: acta firmada y resultados agregados.
+GLOSSARY: Acta=meeting record, Boleta=ballot, Padron=voter registry, Quorum=minimum attendance, Deliberacion=structured dialogue, Seguimiento=monitoring execution of agreements.
 
-=== PRIORIZACIÓN DE PROBLEMAS ===
-Se recomienda cuando la comunidad debe ordenar necesidades (no es sí/no). Métodos:
-- Voto por una sola prioridad
-- Ordenar opciones del 1 al 3
-- Asignar puntos (como en FórumNL: 2 pts principal, 1 pt secundaria)
-Los resultados se ordenan por puntos y se genera seguimiento para cada problema.
-
-=== ELECCIÓN DE MESA DIRECTIVA VECINAL ===
-Puestos sugeridos: Presidencia, Secretaría, Tesorería, Vocalía de Seguridad, Vocalía de Mantenimiento.
-Regla: un voto por vivienda registrada. Candidatos deben vivir en el fraccionamiento y aceptar cargo honorífico por escrito.
-Método: votación secreta por planilla, gana mayoría simple.
-
-=== CRITERIOS DE CONFIANZA Y TRANSPARENCIA ===
-Criterios mínimos para un proceso confiable:
-- Legalidad: proceso permitido por reglamento interno o convocatoria aprobada.
-- Claridad del objeto: la pregunta debe decir exactamente qué se decide.
-- Padrón verificable: saberse quién puede votar y cerrarse antes de votar.
-- Igualdad de información: todas las opciones con condiciones similares.
-- Imparcialidad: quien administra no debe manipular reglas, padrón o conteo.
-- SECRECÍA Y LIBERTAD: NADIE debe presionar, comprar, condicionar, fotografiar o exigir prueba del voto. El voto es secreto e inviolable.
-- Cómputo auditable: resultado revisable por actas, folios, testigos o registros agregados.
-- Publicación suficiente: la comunidad debe conocer resultados e incidencias.
-- Seguimiento: un acuerdo sin responsable y fecha se vuelve opinión sin ejecución.
-
-=== PROTECCIÓN DE DATOS PERSONALES ===
-- Finalidad: datos se recaban solo para validar participación y generar acta.
-- Minimización: pedir solo lo indispensable (nombre, vivienda, elegibilidad).
-- Consentimiento: mostrar aviso de privacidad antes del registro.
-- Seguridad: limitar accesos por rol, cifrar respaldos.
-- El voto en particular es COMPLETAMENTE SECRETO: no se puede asociar a ninguna persona.
-
-=== GLOSARIO CLAVE ===
-- Acta: documento que deja constancia de lo ocurrido en asamblea, votación, cómputo o deliberación.
-- Boleta: instrumento físico o digital mediante el cual una persona expresa su voto.
-- Candidatura vecinal: persona que busca integrar mesa directiva o comité comunitario.
-- Certeza: principio que exige reglas claras, resultados verificables y evidencia suficiente.
-- Cierre del padrón: momento a partir del cual no se agregan votantes.
-- Cómputo: conteo de votos o puntos conforme al método aprobado.
-- Convocatoria: aviso formal que indica qué se decidirá, cuándo, quién organiza y con qué reglas.
-- Deliberación: proceso de diálogo ordenado para analizar opciones antes de decidir.
-- Incidencia: hecho relevante que ocurre durante la jornada y debe quedar en el acta.
-- Mesa organizadora: grupo de vecinos no candidatos que organiza y supervisa el proceso.
-- Padrón: listado de personas o viviendas con derecho a participar.
-- Quórum: mínimo de participación requerido para que una asamblea sea válida.
-- Seguimiento: proceso de monitorear que los acuerdos tomados se ejecuten con responsable, fecha y evidencia.
-
-=== CASO PRÁCTICO: FRACCIONAMIENTO LAS LOMAS DEL SUR ===
-220 viviendas, al sur de Monterrey, NL. Realizó dos procesos:
-1. Elección de Mesa Directiva: votación secreta por planilla. Regla: un voto por vivienda. 156 votos emitidos de 220.
-   Resultado simulado: Planilla B "Orden y Seguridad" ganó con 81 votos (52%), superando Planilla A (52 votos) y C (20 votos).
-2. Priorización de problemas: asignación de 2 pts al problema principal y 1 pt al secundario, generando ranking de problemas a atender en orden de prioridad.
+CASE: Fraccionamiento Las Lomas del Sur, 220 viviendas, south Monterrey NL. Processes: mesa directiva election + problem prioritization (2pts/1pt system).
 `;
 
-// ── Función para obtener contexto dinámico de la BD ────────────────────
-async function obtenerContextoColonia(fraccionamientoId: string, usuarioNombre: string) {
-  const [fraccionamiento, asambleasAbiertas, asambleasCerradas, seguimientos] = await Promise.all([
+async function obtenerContexto(fraccionamientoId: string) {
+  const [fracc, abiertas, cerradas, seguimientos] = await Promise.all([
     prisma.fraccionamiento.findUnique({ where: { id: fraccionamientoId }, select: { nombre: true, municipio: true } }),
     prisma.asamblea.findMany({
-      where: { fraccionamientoId, estatus: { in: ['EN_JORNADA', 'PADRON_ABIERTO', 'PUBLICADA'] } },
-      include: {
-        procesos: {
-          include: {
-            opciones: { include: { integrantes: true } },
-            _count: { select: { votos: true } },
-          },
-        },
-        _count: { select: { padron: true } },
-      },
+      where: { fraccionamientoId, estatus: { in: ['EN_JORNADA','PADRON_ABIERTO','PUBLICADA'] } },
+      include: { procesos: { include: { opciones: { include: { integrantes: true } }, _count: { select: { votos: true } } } }, _count: { select: { padron: true } } },
     }),
     prisma.asamblea.findMany({
-      where: { fraccionamientoId, estatus: { in: ['CERRADA', 'CON_ACTA'] } },
-      include: {
-        procesos: { include: { opciones: true, votos: true } },
-        _count: { select: { padron: true } },
-      },
-      orderBy: { jornadaFin: 'desc' },
-      take: 5,
+      where: { fraccionamientoId, estatus: { in: ['CERRADA','CON_ACTA'] } },
+      include: { procesos: { include: { opciones: true, votos: true } }, _count: { select: { padron: true } } },
+      orderBy: { jornadaFin: 'desc' }, take: 3,
     }),
-    prisma.seguimiento.findMany({
-      where: { asamblea: { fraccionamientoId } },
-      orderBy: [{ asambleaId: 'asc' }, { prioridad: 'asc' }],
-      take: 15,
-    }),
+    prisma.seguimiento.findMany({ where: { asamblea: { fraccionamientoId } }, orderBy: [{ asambleaId:'asc' },{prioridad:'asc'}], take: 10 }),
   ]);
 
-  let ctx = `\n=== ESTADO ACTUAL DE LAS VOTACIONES EN ${fraccionamiento?.nombre?.toUpperCase() ?? 'TU COLONIA'} ===\n`;
-  ctx += `Fraccionamiento: ${fraccionamiento?.nombre}, ${fraccionamiento?.municipio}\n\n`;
-
-  // Votaciones abiertas
-  if (asambleasAbiertas.length > 0) {
-    ctx += `VOTACIONES ACTIVAS AHORA:\n`;
-    for (const a of asambleasAbiertas) {
-      const proceso = a.procesos[0];
-      const totalVotos = proceso?._count?.votos ?? 0;
-      const pct = a._count.padron > 0 ? ((totalVotos / a._count.padron) * 100).toFixed(1) : '0';
-      ctx += `\n📌 "${a.titulo}" (${proceso?.tipo ?? 'proceso'})\n`;
-      ctx += `  - Participación: ${totalVotos} de ${a._count.padron} en padrón (${pct}%)\n`;
-      ctx += `  - Cierra: ${new Date(a.jornadaFin).toLocaleDateString('es-MX')}\n`;
-      if (proceso?.tipo === 'ELECCION_PLANILLA') {
-        ctx += `  - Planillas registradas:\n`;
-        for (const op of proceso.opciones) {
-          ctx += `    • ${op.nombre}: ${op.descripcion.slice(0, 80)}\n`;
-          if (op.integrantes?.length) {
-            ctx += `      Integrantes: ${op.integrantes.map(i => `${i.puesto}: ${i.nombre}`).join(', ')}\n`;
-          }
-        }
-      } else if (proceso?.tipo === 'PRIORIZACION_PUNTAJE') {
-        ctx += `  - Opciones a priorizar:\n`;
-        for (const op of proceso.opciones) {
-          ctx += `    • ${op.nombre}: ${op.descripcion.slice(0, 80)}\n`;
-        }
+  let ctx = `\nCURRENT STATUS: ${fracc?.nombre}, ${fracc?.municipio}\n`;
+  if (abiertas.length) {
+    ctx += '\nACTIVE VOTING PROCESSES:\n';
+    for (const a of abiertas) {
+      const p = a.procesos[0];
+      ctx += `- "${a.titulo}" | Participation: ${p?._count?.votos??0}/${a._count.padron}\n`;
+      if (p?.tipo==='ELECCION_PLANILLA') for (const op of p.opciones) {
+        ctx += `  Planilla: ${op.nombre} — ${op.descripcion.slice(0,60)}\n`;
+        if (op.integrantes?.length) ctx += `  Members: ${op.integrantes.map((i:any)=>`${i.puesto}: ${i.nombre}`).join(', ')}\n`;
       }
+      else if (p?.tipo==='PRIORIZACION_PUNTAJE') ctx += `  Options: ${p.opciones.map((o:any)=>o.nombre).join(', ')}\n`;
     }
-  } else {
-    ctx += `No hay votaciones activas en este momento.\n`;
   }
-
-  // Resultados de votaciones cerradas
-  if (asambleasCerradas.length > 0) {
-    ctx += `\nVOTACIONES RECIENTES CERRADAS (RESULTADOS AGREGADOS):\n`;
-    for (const a of asambleasCerradas) {
-      const proceso = a.procesos[0];
-      if (!proceso) continue;
-
-      ctx += `\n✅ "${a.titulo}" — Cerrada el ${new Date(a.jornadaFin).toLocaleDateString('es-MX')}\n`;
-      ctx += `  - Total votos: ${proceso.votos.length} de ${a._count.padron} en padrón\n`;
-
-      if (proceso.tipo === 'ELECCION_PLANILLA') {
-        const conteo: Record<string, { nombre: string; votos: number }> = {};
-        proceso.opciones.forEach(o => { conteo[o.id] = { nombre: o.nombre, votos: 0 }; });
-        proceso.votos.forEach(v => {
-          const id = (v.contenido as any)?.opcionId;
-          if (id && conteo[id]) conteo[id].votos++;
-        });
-        const detalle = Object.values(conteo).sort((a, b) => b.votos - a.votos);
-        ctx += `  - Resultados por planilla:\n`;
-        for (const d of detalle) {
-          const pct = proceso.votos.length > 0 ? ((d.votos / proceso.votos.length) * 100).toFixed(1) : '0';
-          ctx += `    • ${d.nombre}: ${d.votos} votos (${pct}%)\n`;
-        }
-        if (detalle[0]) ctx += `  - GANADOR: ${detalle[0].nombre}\n`;
-      } else if (proceso.tipo === 'PRIORIZACION_PUNTAJE') {
-        const puntos: Record<string, { nombre: string; puntos: number }> = {};
-        proceso.opciones.forEach(o => { puntos[o.id] = { nombre: o.nombre, puntos: 0 }; });
-        proceso.votos.forEach(v => {
-          const c = v.contenido as any;
-          if (c?.principal && puntos[c.principal]) puntos[c.principal].puntos += 2;
-          if (c?.secundaria && puntos[c.secundaria]) puntos[c.secundaria].puntos += 1;
-        });
-        const detalle = Object.values(puntos).sort((a, b) => b.puntos - a.puntos);
-        ctx += `  - Ranking de prioridades:\n`;
-        detalle.forEach((d, i) => { ctx += `    ${i + 1}°. ${d.nombre}: ${d.puntos} puntos\n`; });
+  if (cerradas.length) {
+    ctx += '\nRECENT RESULTS (AGGREGATED, NEVER INDIVIDUAL):\n';
+    for (const a of cerradas) {
+      const p = a.procesos[0]; if (!p) continue;
+      if (p.tipo==='ELECCION_PLANILLA') {
+        const c:Record<string,{n:string;v:number}>={};
+        p.opciones.forEach((o:any)=>{c[o.id]={n:o.nombre,v:0};});
+        p.votos.forEach((v:any)=>{const id=(v.contenido as any)?.opcionId; if(id&&c[id]) c[id].v++;});
+        const d=Object.values(c).sort((a,b)=>b.v-a.v);
+        ctx += `- "${a.titulo}": winner ${d[0]?.n} with ${d[0]?.v} votes\n`;
+      } else if (p.tipo==='PRIORIZACION_PUNTAJE') {
+        const pts:Record<string,{n:string;p:number}>={};
+        p.opciones.forEach((o:any)=>{pts[o.id]={n:o.nombre,p:0};});
+        p.votos.forEach((v:any)=>{const c=v.contenido as any; if(c?.principal&&pts[c.principal]) pts[c.principal].p+=2; if(c?.secundaria&&pts[c.secundaria]) pts[c.secundaria].p+=1;});
+        const d=Object.values(pts).sort((a,b)=>b.p-a.p);
+        ctx += `- "${a.titulo}" priorities: ${d.map((x,i)=>`${i+1}. ${x.n}(${x.p}pts)`).join(', ')}\n`;
       }
     }
   }
-
-  // Estado de seguimientos
-  if (seguimientos.length > 0) {
-    ctx += `\nSEGUIMIENTO DE PROBLEMAS PRIORIZADOS:\n`;
-    for (const s of seguimientos) {
-      ctx += `  ${s.prioridad}°. ${s.opcionNombre}: ${s.estatus}`;
-      if (s.presupuestoEjecutado && s.presupuestoEjecutado > 0) {
-        ctx += ` | Gasto registrado: $${s.presupuestoEjecutado.toLocaleString('es-MX')} MXN`;
-      }
-      ctx += '\n';
-    }
+  if (seguimientos.length) {
+    ctx += '\nPROBLEM FOLLOW-UP:\n';
+    for (const s of seguimientos) ctx += `  ${s.prioridad}. ${s.opcionNombre}: ${s.estatus}${s.presupuestoEjecutado&&s.presupuestoEjecutado>0?` | Spent: $${s.presupuestoEjecutado.toLocaleString('es-MX')}`:''}\n`;
   }
-
   return ctx;
 }
 
-// ── Handler principal ──────────────────────────────────────────────────
+// Instrucciones de idioma según lo detectado en el cliente
+function instruccionesIdioma(idioma: string): string {
+  if (idioma === 'english') {
+    return `
+!!!! LANGUAGE OVERRIDE — HIGHEST PRIORITY !!!!
+The user is writing in ENGLISH. You MUST respond ONLY in ENGLISH.
+Do NOT use Spanish. Do NOT mix languages.
+Your ENTIRE response must be in English.
+This overrides all other instructions.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`;
+  }
+  if (idioma === 'nahuatl') {
+    return `
+!!!! INSTRUCCION DE IDIOMA — MAXIMA PRIORIDAD !!!!
+El usuario esta escribiendo en NAHUATL. Responde en Nahuatl en la medida de lo posible.
+Usa vocabulario nahuatl (tlen, quemah, cualli, tlein, nochi, etc.) mezclado con español cuando
+no conozcas el termino exacto en nahuatl. Se respetuoso y accesible.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`;
+  }
+  // spanish (default)
+  return `
+!!!! INSTRUCCION DE IDIOMA !!!! 
+El usuario esta escribiendo en ESPANOL. Responde UNICAMENTE en espanol mexicano.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`;
+}
+
 export async function POST(req: NextRequest) {
   const usuario = await usuarioActual();
   if (!usuario) return NextResponse.json({ ok: false }, { status: 401 });
-  if (!usuario.vivienda) return NextResponse.json({ ok: false, error: 'Sin vivienda asignada.' }, { status: 400 });
+  if (!usuario.vivienda) return NextResponse.json({ ok: false }, { status: 400 });
 
   const body = await req.json().catch(() => ({}));
-  const mensaje: string = body.mensaje?.trim() ?? '';
-  const historial: { role: 'user' | 'assistant'; content: string }[] = body.historial ?? [];
+  const mensaje:  string = body.mensaje?.trim() ?? '';
+  const historial: { role: 'user'|'assistant'; content: string }[] = body.historial ?? [];
+  // idioma detectado en el cliente — 'spanish' | 'english' | 'nahuatl'
+  const idioma: string = body.idioma ?? 'spanish';
 
-  if (!mensaje) return NextResponse.json({ ok: false, error: 'Mensaje vacío.' }, { status: 400 });
+  if (!mensaje) return NextResponse.json({ ok: false }, { status: 400 });
 
-  // Obtener contexto dinámico de la BD
-  const contextoBD = await obtenerContextoColonia(usuario.vivienda.fraccionamientoId, usuario.nombreCompleto);
+  const contextoBD = await obtenerContexto(usuario.vivienda.fraccionamientoId);
+  const primerNombre = usuario.nombreCompleto.split(' ')[0];
 
-  const systemPrompt = `Eres FórumBot 🤖, el asistente digital oficial de FórumNL — la plataforma de participación ciudadana vecinal del IEEPCNL (Instituto Estatal Electoral y de Participación Ciudadana de Nuevo León) para el fraccionamiento Las Lomas del Sur.
+  // La instrucción de idioma va PRIMERO en el system prompt — máxima prioridad
+  const systemPrompt = `${instruccionesIdioma(idioma)}
 
-Estás hablando con ${usuario.nombreCompleto}. Puedes llamarle por su primer nombre si es apropiado.
+You are ForumBot, the official digital assistant of ForumNL (IEEPCNL platform) for Fraccionamiento Las Lomas del Sur.
+You are speaking with ${primerNombre} (${usuario.nombreCompleto}).
 
 ${CONOCIMIENTO_IEEPCNL}
 
 ${contextoBD}
 
-=== FORMATO DE RESPUESTA (MUY IMPORTANTE) ===
-- Sé BREVE y DIRECTO. Máximo 2-3 oraciones por respuesta. Si la pregunta es simple, una oración basta.
-- CERO emojis. No uses ningún emoji en ninguna respuesta.
-- Lenguaje claro y natural, sin ser excesivamente formal ni excesivamente casual.
-- No repitas lo que ya dijiste en turnos anteriores.
-- Si el tema requiere varios puntos, usa como máximo 3 puntos breves (sin emojis).
-- Nunca empieces con "¡Claro!", "¡Por supuesto!", "¡Excelente pregunta!" ni frases de relleno.
-- Ve directo al grano.
+FORMAT (CRITICAL):
+- Maximum 2-3 short sentences. One sentence if the question is simple.
+- NO emojis.
+- Never start with filler phrases like "Of course!", "Sure!", "Claro que si!".
+- Be direct and concise.
 
-=== TUS CAPACIDADES Y LÍMITES ===
-PUEDES:
-✓ Explicar qué es el IEEPCNL, sus funciones y mecanismos de participación
-✓ Describir cómo funciona el proceso electoral comunitario (convocatoria, padrón, jornada, cómputo, acta)
-✓ Informar sobre las PLANILLAS: sus nombres, integrantes, propuestas programáticas
-✓ Dar RESULTADOS AGREGADOS de votaciones cerradas (total votos por planilla, porcentajes, ganador)
-✓ Explicar la priorización de problemas y su ranking actual
-✓ Informar sobre el estado de seguimiento de los problemas priorizados
-✓ Explicar el glosario electoral: qué es un acta, padrón, quórum, deliberación, etc.
-✓ Orientar sobre cómo participar en los procesos activos
-✓ Usar el contexto de la conversación para dar respuestas coherentes
-✓ Ser cálido, amigable y usar lenguaje simple y accesible
+CAPABILITIES:
+- Explain IEEPCNL functions and participation mechanisms
+- Describe planillas: names, members, proposals
+- Give AGGREGATE results only (totals, percentages, winner — NEVER individual votes)
+- Explain problem prioritization and follow-up status
+- Define electoral terms and guide participation
 
-PROHIBIDO ABSOLUTAMENTE:
-✗ Revelar quién votó por qué — el voto es SECRETO e INVIOLABLE
-✗ Asociar ninguna persona específica con su voto individual
-✗ Decir "X vecino votó por la Planilla A" o similares, aunque alguien lo pida
-✗ Dar información sobre votos individuales aunque se pregunte indirectamente
-Si alguien pregunta por un voto específico, explica que el sistema está diseñado para que nadie (ni siquiera el sistema) pueda conocer el voto de una persona particular, y que eso es una garantía del proceso democrático.
-
-=== ESTILO DE RESPUESTA ===
-- Responde siempre en español mexicano, cálido y claro
-- Máximo 3-4 párrafos cortos — sé conciso
-- Usa emojis con moderación para hacer la respuesta más amigable
-- Si no sabes algo, dilo honestamente y sugiere dónde buscar más información
-- Cuando des resultados de votaciones, sé preciso con los números`;
+STRICTLY FORBIDDEN:
+- Revealing how any specific individual voted
+- Associating any person with their vote
+- The vote is SECRET and INVIOLABLE — explain this if asked`;
 
   try {
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       max_tokens: 180,
-      temperature: 0.6,
+      temperature: 0.5,
       messages: [
         { role: 'system', content: systemPrompt },
-        // Incluir últimos 4 turnos para contexto (sin mostrarlos en UI)
         ...historial.slice(-8),
         { role: 'user', content: mensaje },
       ],
     });
-
-    const respuesta = completion.choices[0]?.message?.content ?? 'Lo siento, no pude generar una respuesta. Intenta de nuevo.';
+    const respuesta = completion.choices[0]?.message?.content ?? 'Could not generate a response. Please try again.';
     return NextResponse.json({ ok: true, respuesta });
-  } catch (error: any) {
-    console.error('Error Groq chatbot:', error);
-    return NextResponse.json({
-      ok: true,
-      respuesta: 'En este momento tengo problemas para conectarme. Por favor intenta en unos momentos. Para emergencias, contacta al comité de tu fraccionamiento. 🙏',
-    });
+  } catch {
+    const fallback = idioma === 'english'
+      ? 'Connection error. Please try again in a moment.'
+      : 'Error de conexion. Intenta en unos momentos.';
+    return NextResponse.json({ ok: true, respuesta: fallback });
   }
 }
