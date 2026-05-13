@@ -47,7 +47,6 @@ export default async function AsambleaPage({ params }: { params: { id: string } 
           rol: m.usuario.rol ?? null,
           esMio: m.usuarioId === usuario.id,
         }))}
-        usuarioId={usuario.id}
         esModerador={esModerador}
       />
     </div>
