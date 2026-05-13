@@ -43,6 +43,9 @@ export default async function AsambleaPage({ params }: { params: { id: string } 
           esModerador: m.usuario.rol === 'COMITE' || m.usuario.rol === 'ADMIN',
           contenido: m.contenido,
           createdAt: m.createdAt.toISOString(),
+          esAnonimo: (m as any).esAnonimo ?? false,
+          rol: m.usuario.rol ?? null,
+          esMio: m.usuarioId === usuario.id,
         }))}
         usuarioId={usuario.id}
         esModerador={esModerador}
