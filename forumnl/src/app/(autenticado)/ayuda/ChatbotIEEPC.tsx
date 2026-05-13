@@ -154,7 +154,7 @@ export function ChatbotIEEPC({ nombreUsuario }: { nombreUsuario: string }) {
     setMensajeVisible(mensajeTexto);
     setFase('procesando');
 
-    const nuevoHistorial: Historial[] = [...historial, { role: 'user', content: mensajeTexto }];
+    const nuevoHistorial: Historial[] = [...historial, { role: 'user' as const, content: mensajeTexto }];
 
     try {
       const r = await fetch('/api/chatbot', {
@@ -166,7 +166,7 @@ export function ChatbotIEEPC({ nombreUsuario }: { nombreUsuario: string }) {
       const j = await r.json();
       if (!j.ok || !j.respuesta) throw new Error('Sin respuesta');
       const respuesta: string = j.respuesta;
-      setHistorial([...nuevoHistorial, { role:'assistant', content: respuesta }].slice(-16));
+      setHistorial([...nuevoHistorial, { role: 'assistant' as const, content: respuesta }].slice(-16));
       mostrarRespuestaBot(respuesta, idioma);
     } catch {
       mostrarRespuestaBot('No pude conectarme. Intenta de nuevo.', idioma);
