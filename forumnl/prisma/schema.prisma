@@ -1,8 +1,5 @@
 // =============================================================
-// FórumNL — Schema Prisma
-// Diseño según ESPECIFICACION_PORTAL_VOTACION_VECINAL.md §5
-// Principio crítico: tabla `voto` NO tiene FK a `usuario` para
-// preservar secrecía. Solo se conecta vía `folioAnonimo`.
+// FórumNL — Schema Prisma (actualizado con trazabilidad)
 // =============================================================
 
 generator client {
@@ -15,21 +12,19 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// --- ROLES Y ESTATUS -----------------------------------------
+// ─── ENUMS ────────────────────────────────────────────────────
 
 enum Rol {
   ADMIN
   COMITE
   USUARIO
 }
-
 enum EstatusUsuario {
   PENDIENTE
   VERIFICADO
   RECHAZADO
   SUSPENDIDO
 }
-
 enum EstatusAsamblea {
   BORRADOR
   PUBLICADA
@@ -39,7 +34,6 @@ enum EstatusAsamblea {
   CERRADA
   CON_ACTA
 }
-
 enum TipoProceso {
   ELECCION_PLANILLA
   PRIORIZACION_PUNTAJE
@@ -47,7 +41,6 @@ enum TipoProceso {
   APROBACION_MULTIPLE
   ASAMBLEA_DELIBERATIVA
 }
-
 enum EstatusProceso {
   CONFIGURANDO
   ABIERTO
@@ -55,7 +48,6 @@ enum EstatusProceso {
   COMPUTADO
   CON_ACTA
 }
-
 enum CategoriaReporte {
   SEGURIDAD
   AGUA_DRENAJE
@@ -65,7 +57,6 @@ enum CategoriaReporte {
   BASURA
   OTROS
 }
-
 enum EstatusReporte {
   ABIERTO
   EN_PROCESO
@@ -74,17 +65,17 @@ enum EstatusReporte {
   CERRADO
 }
 
-// --- ENTIDADES BASE ------------------------------------------
+// ─── ENTIDADES BASE ───────────────────────────────────────────
 
 model Fraccionamiento {
-  id              String   @id @default(uuid())
-  nombre          String
-  municipio       String   @default("Monterrey")
-  estado          String   @default("Nuevo León")
-  totalViviendas  Int      @default(0)
-  avisoPrivacidad String   @default("")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  nombre         String
+  municipio      String   @default("Monterrey")
+  estado         String   @default("Nuevo León")
+  totalViviendas Int      @default(0)
+  avisoPrivacidad String  @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   viviendas Vivienda[]
   asambleas Asamblea[]
@@ -93,50 +84,45 @@ model Fraccionamiento {
 }
 
 model Vivienda {
-  id                 String          @id @default(uuid())
-  fraccionamientoId  String
-  identificador      String
-  estatus            String          @default("activa")
-  fraccionamiento    Fraccionamiento @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
-  usuario            Usuario?
+  id                String          @id @default(uuid())
+  fraccionamientoId String
+  identificador     String
+  estatus           String          @default("activa")
+  fraccionamiento   Fraccionamiento @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
+  usuario           Usuario?
 
   @@unique([fraccionamientoId, identificador])
 }
 
 model Usuario {
   id                String         @id @default(uuid())
-  // Identidad y contacto
-  telefono          String         @unique     // +52 8132558755
+  telefono          String         @unique
   nombreCompleto    String         @default("")
   curp              String?        @unique
   fechaNacimiento   DateTime?
-  sexo              String?        // "Hombre" | "Mujer"
+  sexo              String?
   domicilio         String?
-  // Vivienda asignada (one-to-one)
   viviendaId        String?        @unique
   vivienda          Vivienda?      @relation(fields: [viviendaId], references: [id])
-  // Biométrico (se guarda en Supabase Storage)
   ineFrontePath     String?
   selfiePath        String?
-  embeddingFacial   Bytes?         // 128 floats en bytes
-  // Auth
+  embeddingFacial   Bytes?
   rol               Rol            @default(USUARIO)
   estatus           EstatusUsuario @default(PENDIENTE)
   fechaVerificacion DateTime?
-  // Auditoría
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   ultimoAcceso      DateTime?
 
-  // Relaciones
-  codigosVerificacion CodigoVerificacion[]
-  posts               Post[]
-  comentarios         Comentario[]
-  likes               Like[]
-  reportes            Reporte[]
-  asambleasOrganiza   MesaOrganizadora[]
-  asistenciasAsamblea AsistenteAsamblea[]
-  mensajesAsamblea    MensajeAsamblea[]
+  codigosVerificacion     CodigoVerificacion[]
+  posts                   Post[]
+  comentarios             Comentario[]
+  likes                   Like[]
+  reportes                Reporte[]
+  asambleasOrganiza       MesaOrganizadora[]
+  asistenciasAsamblea     AsistenteAsamblea[]
+  mensajesAsamblea        MensajeAsamblea[]
+  actualizacionesSeg      ActualizacionSeguimiento[]
 }
 
 model CodigoVerificacion {
@@ -144,8 +130,8 @@ model CodigoVerificacion {
   usuarioId String?
   usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   telefono  String
-  codigo    String   // 6 dígitos
-  proposito String   @default("login") // "login" | "registro"
+  codigo    String
+  proposito String   @default("login")
   usado     Boolean  @default(false)
   expiraEn  DateTime
   createdAt DateTime @default(now())
@@ -153,31 +139,31 @@ model CodigoVerificacion {
   @@index([telefono, codigo])
 }
 
-// --- ASAMBLEAS Y PROCESOS DE VOTACIÓN ------------------------
+// ─── ASAMBLEAS ────────────────────────────────────────────────
 
 model Asamblea {
-  id                 String          @id @default(uuid())
-  fraccionamientoId  String
-  fraccionamiento    Fraccionamiento @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
-  titulo             String
-  descripcion        String          @default("")
-  fechaPublicacion   DateTime        @default(now())
-  fechaCierrePadron  DateTime
-  jornadaInicio      DateTime
-  jornadaFin         DateTime
-  lugarPresencial    String?
-  reglas             String          @default("")
-  estatus            EstatusAsamblea @default(BORRADOR)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id                String          @id @default(uuid())
+  fraccionamientoId String
+  fraccionamiento   Fraccionamiento @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
+  titulo            String
+  descripcion       String          @default("")
+  fechaPublicacion  DateTime        @default(now())
+  fechaCierrePadron DateTime
+  jornadaInicio     DateTime
+  jornadaFin        DateTime
+  lugarPresencial   String?
+  reglas            String          @default("")
+  estatus           EstatusAsamblea @default(BORRADOR)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  procesos           Proceso[]
-  mesa               MesaOrganizadora[]
-  padron             PadronAsamblea[]
-  incidencias        Incidencia[]
-  seguimiento        Seguimiento[]
-  asistentes         AsistenteAsamblea[]
-  mensajes           MensajeAsamblea[]
+  procesos    Proceso[]
+  mesa        MesaOrganizadora[]
+  padron      PadronAsamblea[]
+  incidencias Incidencia[]
+  seguimiento Seguimiento[]
+  asistentes  AsistenteAsamblea[]
+  mensajes    MensajeAsamblea[]
 }
 
 model MesaOrganizadora {
@@ -186,21 +172,19 @@ model MesaOrganizadora {
   asamblea   Asamblea @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
   usuarioId  String
   usuario    Usuario  @relation(fields: [usuarioId], references: [id])
-  rolMesa    String   @default("integrante") // "responsable" | "integrante" | "moderador"
+  rolMesa    String   @default("integrante")
 
   @@unique([asambleaId, usuarioId])
 }
 
-// Snapshot de viviendas elegibles al cerrar padrón.
-// Cada entrada incluye un folio anónimo de 1 uso para votar.
 model PadronAsamblea {
-  id                  String   @id @default(uuid())
-  asambleaId          String
-  asamblea            Asamblea @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
-  viviendaId          String
-  usuarioId           String
-  folioAnonimo        String   // generado random al cerrar padrón
-  elegible            Boolean  @default(true)
+  id                   String   @id @default(uuid())
+  asambleaId           String
+  asamblea             Asamblea @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
+  viviendaId           String
+  usuarioId            String
+  folioAnonimo         String
+  elegible             Boolean  @default(true)
   motivoInelegibilidad String?
 
   @@unique([asambleaId, viviendaId])
@@ -209,20 +193,20 @@ model PadronAsamblea {
 }
 
 model Proceso {
-  id           String         @id @default(uuid())
-  asambleaId   String
-  asamblea     Asamblea       @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
-  tipo         TipoProceso
-  titulo       String
-  descripcion  String         @default("")
-  orden        Int            @default(0)
-  estatus      EstatusProceso @default(CONFIGURANDO)
-  createdAt    DateTime       @default(now())
+  id          String         @id @default(uuid())
+  asambleaId  String
+  asamblea    Asamblea       @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
+  tipo        TipoProceso
+  titulo      String
+  descripcion String         @default("")
+  orden       Int            @default(0)
+  estatus     EstatusProceso @default(CONFIGURANDO)
+  createdAt   DateTime       @default(now())
 
-  opciones Opcion[]
-  votos    Voto[]
+  opciones  Opcion[]
+  votos     Voto[]
   emisiones EmisionPadron[]
-  acta     Acta?
+  acta      Acta?
 }
 
 model Opcion {
@@ -231,7 +215,6 @@ model Opcion {
   proceso     Proceso @relation(fields: [procesoId], references: [id], onDelete: Cascade)
   nombre      String
   descripcion String  @default("")
-  // "Infórmate": contenido editable por el comité
   infoMd      String  @default("")
   imagenPath  String?
   orden       Int     @default(0)
@@ -239,7 +222,6 @@ model Opcion {
   integrantes PlanillaIntegrante[]
 }
 
-// Integrantes (sólo aplica a planilla)
 model PlanillaIntegrante {
   id       String @id @default(uuid())
   opcionId String
@@ -248,66 +230,95 @@ model PlanillaIntegrante {
   nombre   String
 }
 
-// VOTOS — sin FK a usuario por secrecía
 model Voto {
-  id            String   @id @default(uuid())
-  procesoId     String
-  proceso       Proceso  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
-  folioAnonimo  String
-  contenido     Json
-  canal         String   @default("digital") // "digital" | "presencial"
-  emitidoAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  procesoId    String
+  proceso      Proceso  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  folioAnonimo String
+  contenido    Json
+  canal        String   @default("digital")
+  emitidoAt    DateTime @default(now())
 
   @@unique([procesoId, folioAnonimo])
   @@index([procesoId])
 }
 
-// Marca de quién ya votó (tabla separada de voto para preservar secrecía)
 model EmisionPadron {
-  id            String   @id @default(uuid())
-  procesoId     String
-  proceso       Proceso  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
-  folioAnonimo  String
-  canal         String   @default("digital")
-  marcadoAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  procesoId    String
+  proceso      Proceso  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  folioAnonimo String
+  canal        String   @default("digital")
+  marcadoAt    DateTime @default(now())
 
   @@unique([procesoId, folioAnonimo])
 }
 
 model Incidencia {
-  id           String   @id @default(uuid())
-  asambleaId   String
-  asamblea     Asamblea @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
-  tipo         String   // "duplicidad" | "identidad_fallida" | etc
-  descripcion  String
-  reportadoAt  DateTime @default(now())
+  id          String   @id @default(uuid())
+  asambleaId  String
+  asamblea    Asamblea @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
+  tipo        String
+  descripcion String
+  reportadoAt DateTime @default(now())
 }
 
 model Acta {
-  id          String   @id @default(uuid())
-  procesoId   String   @unique
-  proceso     Proceso  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
-  pdfPath     String   // ruta en Supabase Storage
-  hashSha256  String
-  resultados  Json
-  generadaAt  DateTime @default(now())
+  id         String   @id @default(uuid())
+  procesoId  String   @unique
+  proceso    Proceso  @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  pdfPath    String
+  hashSha256 String
+  resultados Json
+  generadaAt DateTime @default(now())
 }
+
+// ─── SEGUIMIENTO (TRAZABILIDAD DE PRIORIZACIÓN) ───────────────
 
 model Seguimiento {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   asambleaId         String
-  asamblea           Asamblea @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
-  prioridad          Int
-  titulo             String
-  responsable        String   @default("")
-  accion             String   @default("")
+  asamblea           Asamblea  @relation(fields: [asambleaId], references: [id], onDelete: Cascade)
+  // Opción a la que corresponde esta tarea
+  opcionNombre       String    @default("")
+  opcionId           String?   // referencia no-FK para conservar si cambia
+  // Prioridad según resultado de votación
+  prioridad          Int       @default(1)   // 1 = más urgente
+  puntos             Int       @default(0)   // puntos obtenidos en votación
+  // Datos de gestión
+  responsable        String    @default("")
   fechaCompromiso    DateTime?
-  evidenciaEsperada  String   @default("")
-  estatus            String   @default("pendiente")
-  actualizadoAt      DateTime @updatedAt
+  presupuestoTotal   Float?    // MXN asignado
+  presupuestoEjecutado Float?  // MXN gastado
+  estatus            String    @default("pendiente") // pendiente|en_proceso|completado|bloqueado
+  actualizadoAt      DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+
+  actualizaciones ActualizacionSeguimiento[]
+
+  @@index([asambleaId, prioridad])
 }
 
-// --- ASAMBLEA DELIBERATIVA (chat/foro) -----------------------
+// ─── ACTUALIZACIONES DE SEGUIMIENTO ──────────────────────────
+
+model ActualizacionSeguimiento {
+  id             String      @id @default(uuid())
+  seguimientoId  String
+  seguimiento    Seguimiento @relation(fields: [seguimientoId], references: [id], onDelete: Cascade)
+  autorId        String?
+  autor          Usuario?    @relation(fields: [autorId], references: [id])
+  // Contenido de la actualización
+  mensaje        String
+  imagenPath     String?     // foto de evidencia
+  presupuesto    Float?      // monto específico de esta actualización (opcional)
+  tipo           String      @default("avance")
+  // avance | inicio | completado | incidencia | presupuesto | foto
+  createdAt      DateTime    @default(now())
+
+  @@index([seguimientoId, createdAt])
+}
+
+// ─── ASAMBLEA DELIBERATIVA ─────────────────────────────────────
 
 model AsistenteAsamblea {
   id         String   @id @default(uuid())
@@ -332,7 +343,7 @@ model MensajeAsamblea {
   @@index([asambleaId, createdAt])
 }
 
-// --- FEED DE COMUNIDAD ---------------------------------------
+// ─── FEED ─────────────────────────────────────────────────────
 
 model Post {
   id                String          @id @default(uuid())
@@ -340,15 +351,14 @@ model Post {
   fraccionamiento   Fraccionamiento @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
   autorId           String?
   autor             Usuario?        @relation(fields: [autorId], references: [id])
-  // Si autor es null => post automático del sistema
-  tipo              String          @default("manual") // "manual" | "auto_evento" | "auto_resultado" | "auto_seguimiento"
+  tipo              String          @default("manual")
   titulo            String          @default("")
   contenido         String
   imagenPath        String?
-  // Si está vinculado a una asamblea/proceso/reporte:
   asambleaId        String?
   procesoId         String?
   reporteId         String?
+  seguimientoId     String?
   createdAt         DateTime        @default(now())
 
   comentarios Comentario[]
@@ -379,24 +389,24 @@ model Like {
   @@unique([postId, usuarioId])
 }
 
-// --- REPORTES CIUDADANOS -------------------------------------
+// ─── REPORTES ─────────────────────────────────────────────────
 
 model Reporte {
-  id                 String           @id @default(uuid())
-  fraccionamientoId  String
-  fraccionamiento    Fraccionamiento  @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
-  autorId            String
-  autor              Usuario          @relation(fields: [autorId], references: [id])
-  categoria          CategoriaReporte
-  titulo             String
-  descripcion        String
-  imagenPath         String?
-  ubicacionLat       Float?
-  ubicacionLng       Float?
-  estatus            EstatusReporte   @default(ABIERTO)
-  convertidoEnProceso String?         // ID del proceso si se convirtió en votación
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                  String           @id @default(uuid())
+  fraccionamientoId   String
+  fraccionamiento     Fraccionamiento  @relation(fields: [fraccionamientoId], references: [id], onDelete: Cascade)
+  autorId             String
+  autor               Usuario          @relation(fields: [autorId], references: [id])
+  categoria           CategoriaReporte
+  titulo              String
+  descripcion         String
+  imagenPath          String?
+  ubicacionLat        Float?
+  ubicacionLng        Float?
+  estatus             EstatusReporte   @default(ABIERTO)
+  convertidoEnProceso String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   @@index([fraccionamientoId, createdAt])
 }

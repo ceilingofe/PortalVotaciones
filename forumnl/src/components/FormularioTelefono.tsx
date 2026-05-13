@@ -1,18 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Phone, KeyRound, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { KeyRound, Loader2 } from 'lucide-react';
+import { PhoneInput } from '@/components/PhoneInput';
 
 interface Props {
   modo: 'login' | 'registro';
-  /** Para login redirige a /home. Para registro pasa al onboarding biométrico. */
   onSuccess: (data: any) => void;
 }
 
 export function FormularioTelefono({ modo, onSuccess }: Props) {
-  const router = useRouter();
   const [paso, setPaso] = useState<'telefono' | 'codigo'>('telefono');
   const [telefono, setTelefono] = useState('');
   const [codigo, setCodigo] = useState('');
@@ -20,13 +17,16 @@ export function FormularioTelefono({ modo, onSuccess }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
-  const endpointSolicitar =
-    modo === 'login' ? '/api/auth/login/solicitar-codigo' : '/api/auth/register/solicitar-codigo';
-  const endpointVerificar =
-    modo === 'login' ? '/api/auth/login/verificar-codigo' : '/api/auth/register/verificar-codigo';
+  const endpointSolicitar = modo === 'login'
+    ? '/api/auth/login/solicitar-codigo'
+    : '/api/auth/register/solicitar-codigo';
+  const endpointVerificar = modo === 'login'
+    ? '/api/auth/login/verificar-codigo'
+    : '/api/auth/register/verificar-codigo';
 
   async function solicitarCodigo(e: React.FormEvent) {
     e.preventDefault();
+    if (!telefono) { setError('Ingresa tu número de teléfono.'); return; }
     setError(null);
     setCargando(true);
     try {
@@ -37,13 +37,9 @@ export function FormularioTelefono({ modo, onSuccess }: Props) {
       });
       const json = await r.json();
       if (!r.ok || !json.ok) {
-        if (json.error === 'NO_REGISTRADO') {
-          setError('Este número no está registrado. ¿Deseas crear una cuenta?');
-        } else if (json.error === 'YA_REGISTRADO') {
-          setError('Este número ya está registrado. Inicia sesión.');
-        } else {
-          setError(json.message || 'No se pudo enviar el código.');
-        }
+        if (json.error === 'NO_REGISTRADO') setError('Este número no está registrado.');
+        else if (json.error === 'YA_REGISTRADO') setError('Este número ya tiene cuenta. Inicia sesión.');
+        else setError(json.message || 'No se pudo enviar el código.');
         return;
       }
       if (json.codigoDev) setCodigoDev(json.codigoDev);
@@ -79,86 +75,89 @@ export function FormularioTelefono({ modo, onSuccess }: Props) {
   }
 
   return (
-    <div className="w-full max-w-md">
-      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-ieepc-gray hover:text-ieepc-black mb-6">
-        <ArrowLeft className="w-4 h-4" /> Volver
-      </Link>
-
-      <h1 className="text-2xl font-bold mb-1">
+    <div className="w-full">
+      {/* Título */}
+      <h1 className="text-3xl font-extrabold text-[#1A1A1A] mb-1">
         {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
       </h1>
-      <p className="text-ieepc-gray text-sm mb-6">
+      <p className="text-[#6B7280] text-sm mb-8">
         {paso === 'telefono'
           ? 'Te enviaremos un código de verificación por SMS.'
-          : `Ingresa el código de 6 dígitos que enviamos a ${telefono}.`}
+          : `Ingresa el código de 6 dígitos enviado a ${telefono}.`}
       </p>
 
+      {/* Error */}
       {error && (
-        <div className="card p-3 mb-4 border-red-200 bg-red-50 text-red-800 text-sm">
+        <div className="rounded-xl p-4 mb-5 bg-red-50 border border-red-200 text-red-800 text-sm">
           {error}
-          {modo === 'login' && error?.includes('no está registrado') && (
-            <Link href="/register" className="ml-2 underline font-medium">Crear cuenta</Link>
-          )}
         </div>
       )}
 
+      {/* Código DEV */}
       {codigoDev && (
-        <div className="card p-3 mb-4 border-ieepc-yellow bg-ieepc-yellow/10 text-sm">
-          <strong className="text-ieepc-black">Modo desarrollo:</strong> tu código es{' '}
-          <span className="font-mono font-bold text-base">{codigoDev}</span>
+        <div className="rounded-xl p-4 mb-5 border border-[#F5C518]" style={{ background: 'linear-gradient(135deg,#FFFBEB,#FEF3C7)' }}>
+          <p className="text-sm text-[#92400E]">
+            <strong>Modo desarrollo:</strong> tu código es{' '}
+            <span className="font-mono font-black text-2xl tracking-[0.3em]">{codigoDev}</span>
+          </p>
         </div>
       )}
 
+      {/* Paso 1: Teléfono */}
       {paso === 'telefono' && (
-        <form onSubmit={solicitarCodigo} className="card p-6 space-y-4">
+        <form onSubmit={solicitarCodigo} className="card p-6 space-y-5">
           <div>
             <label className="label">Número de teléfono</label>
-            <div className="relative">
-              <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ieepc-gray" />
-              <input
-                type="tel"
-                inputMode="tel"
-                className="input pl-10"
-                placeholder="+52 81 1234 5678"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                required
-                disabled={cargando}
-              />
-            </div>
-            <p className="text-xs text-ieepc-gray mt-1.5">Formato: 10 dígitos (se asume +52)</p>
+            <PhoneInput value={telefono} onChange={setTelefono} disabled={cargando} />
+            <p className="text-xs text-[#9CA3AF] mt-2">
+              Selecciona tu país e ingresa los dígitos sin espacios.
+            </p>
           </div>
-          <button type="submit" disabled={cargando} className="btn-yellow w-full justify-center">
-            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enviar código'}
+          <button type="submit" disabled={cargando || !telefono} className="btn-yellow w-full py-3.5 text-base font-bold">
+            {cargando ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar código →'}
           </button>
         </form>
       )}
 
+      {/* Paso 2: Código */}
       {paso === 'codigo' && (
-        <form onSubmit={verificarCodigo} className="card p-6 space-y-4">
+        <form onSubmit={verificarCodigo} className="card p-6 space-y-5">
           <div>
-            <label className="label">Código de 6 dígitos</label>
+            <label className="label">Código de verificación</label>
             <div className="relative">
-              <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ieepc-gray" />
+              <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="\d{6}"
                 maxLength={6}
-                className="input pl-10 text-center text-xl font-mono tracking-widest"
-                placeholder="000000"
+                autoFocus
+                className="input pl-11 text-center text-3xl font-black tracking-[0.5em]"
+                placeholder="······"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))}
                 required
                 disabled={cargando}
-                autoFocus
               />
             </div>
+            <p className="text-xs text-[#9CA3AF] mt-2 text-center">
+              Vigencia: 5 minutos.
+            </p>
           </div>
-          <button type="submit" disabled={cargando || codigo.length !== 6} className="btn-yellow w-full justify-center">
-            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : modo === 'login' ? 'Iniciar sesión' : 'Continuar'}
+          <button
+            type="submit"
+            disabled={cargando || codigo.length !== 6}
+            className="btn-yellow w-full py-3.5 text-base font-bold"
+          >
+            {cargando
+              ? <Loader2 className="w-5 h-5 animate-spin" />
+              : modo === 'login' ? 'Ingresar →' : 'Continuar →'}
           </button>
-          <button type="button" onClick={() => { setPaso('telefono'); setCodigo(''); setCodigoDev(null); }} className="btn-ghost w-full justify-center text-sm">
+          <button
+            type="button"
+            onClick={() => { setPaso('telefono'); setCodigo(''); setCodigoDev(null); setError(null); }}
+            className="btn-ghost w-full text-sm"
+          >
             Cambiar número
           </button>
         </form>

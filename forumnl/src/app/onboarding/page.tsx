@@ -2,165 +2,60 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Camera, Upload, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Camera, Upload, Loader2, CheckCircle2, XCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-type Paso = 'instrucciones' | 'ine' | 'datos' | 'selfie' | 'procesando' | 'exito' | 'error';
-
-declare const faceapi: any;
-declare const cv: any;
+type Paso = 'cargando' | 'instrucciones' | 'ine' | 'preview_ine' | 'datos' | 'selfie' | 'preview_selfie' | 'procesando' | 'exito' | 'error';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [paso, setPaso] = useState<Paso>('instrucciones');
-  const [librosListos, setLibrosListos] = useState(false);
-  const [progreso, setProgreso] = useState('Cargando modelos...');
+  const [paso, setPaso] = useState<Paso>('cargando');
+  const [progreso, setProgreso] = useState('Preparando modelos de IA...');
   const [error, setError] = useState<string | null>(null);
 
-  // Datos capturados
-  const [ineCanvas, setIneCanvas] = useState<HTMLCanvasElement | null>(null);
   const [ineDescriptor, setIneDescriptor] = useState<Float32Array | null>(null);
-  const [datosIne, setDatosIne] = useState({
-    nombreCompleto: '',
-    curp: '',
-    fechaNacimiento: '',
-    sexo: '',
-    domicilio: '',
-  });
+  const [ineCanvas, setIneCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [datosIne, setDatosIne] = useState({ nombreCompleto: '', curp: '', fechaNacimiento: '', sexo: '', domicilio: '' });
   const [selfieDescriptor, setSelfieDescriptor] = useState<Float32Array | null>(null);
 
-  // Cargar librerías una sola vez
   useEffect(() => {
-    let cancelled = false;
-    async function cargar() {
-      try {
-        await loadScript('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
-        await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-        await loadScript('https://docs.opencv.org/4.10.0/opencv.js', { waitForCv: true });
-
-        setProgreso('Descargando detector facial...');
-        const MODEL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL);
-
-        if (!cancelled) {
-          setLibrosListos(true);
-          setProgreso('Listo');
-        }
-      } catch (e: any) {
-        if (!cancelled) setError('No se pudieron cargar los modelos. Revisa tu conexión y recarga.');
-      }
-    }
-    cargar();
-    return () => { cancelled = true; };
+    cargarLibrerias();
   }, []);
 
-  return (
-    <main className="min-h-screen bg-gradient-to-b from-white to-ieepc-yellow/10 px-4 py-6">
-      <div className="max-w-2xl mx-auto">
-        <Link href="/register" className="inline-flex items-center gap-1.5 text-sm text-ieepc-gray hover:text-ieepc-black mb-4">
-          <ArrowLeft className="w-4 h-4" /> Volver
-        </Link>
+  async function cargarLibrerias() {
+    try {
+      setProgreso('Cargando detector facial (1/3)…');
+      await loadScript('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
 
-        <Indicador paso={paso} />
+      setProgreso('Cargando OCR (2/3)…');
+      await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
 
-        {!librosListos && paso === 'instrucciones' && (
-          <div className="card p-6 text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-ieepc-yellow" />
-            <p className="font-medium text-ieepc-black">{progreso}</p>
-            <p className="text-sm text-ieepc-gray mt-1">La primera carga descarga ~10 MB.</p>
-          </div>
-        )}
+      setProgreso('Descargando modelo de reconocimiento (3/3)…');
+      const MODEL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+      const fa = (window as any).faceapi;
+      await fa.nets.tinyFaceDetector.loadFromUri(MODEL);
+      await fa.nets.faceLandmark68Net.loadFromUri(MODEL);
+      await fa.nets.faceRecognitionNet.loadFromUri(MODEL);
 
-        {paso === 'instrucciones' && librosListos && (
-          <PantallaInstrucciones onContinuar={() => setPaso('ine')} />
-        )}
-
-        {paso === 'ine' && (
-          <CapturaIne
-            onCapturado={(canvas, descriptor, datos) => {
-              setIneCanvas(canvas);
-              setIneDescriptor(descriptor);
-              setDatosIne(datos);
-              setPaso('datos');
-            }}
-            onError={(msg) => { setError(msg); setPaso('error'); }}
-          />
-        )}
-
-        {paso === 'datos' && (
-          <ConfirmarDatos
-            datos={datosIne}
-            ineCanvas={ineCanvas}
-            onActualizar={setDatosIne}
-            onAtras={() => setPaso('ine')}
-            onContinuar={() => setPaso('selfie')}
-          />
-        )}
-
-        {paso === 'selfie' && (
-          <CapturaSelfie
-            onCapturado={async (descriptor) => {
-              setSelfieDescriptor(descriptor);
-              setPaso('procesando');
-              await finalizarRegistro(descriptor);
-            }}
-            onError={(msg) => { setError(msg); setPaso('error'); }}
-          />
-        )}
-
-        {paso === 'procesando' && (
-          <div className="card p-8 text-center">
-            <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-ieepc-yellow" />
-            <p className="font-medium">Verificando tu identidad...</p>
-          </div>
-        )}
-
-        {paso === 'exito' && (
-          <div className="card p-8 text-center">
-            <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-green-600" />
-            <h2 className="text-2xl font-bold mb-2">¡Bienvenido a FórumNL!</h2>
-            <p className="text-ieepc-gray mb-6">Tu registro fue exitoso.</p>
-            <button onClick={() => router.push('/home')} className="btn-yellow">
-              Ir al inicio
-            </button>
-          </div>
-        )}
-
-        {paso === 'error' && (
-          <div className="card p-8 text-center">
-            <XCircle className="w-16 h-16 mx-auto mb-4 text-red-600" />
-            <h2 className="text-xl font-bold mb-2">Algo salió mal</h2>
-            <p className="text-ieepc-gray mb-6">{error}</p>
-            <button onClick={() => { setError(null); setPaso('ine'); }} className="btn-yellow">
-              Reintentar
-            </button>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+      setPaso('instrucciones');
+    } catch (e: any) {
+      setError('No se pudieron cargar los modelos. Verifica tu conexión.');
+      setPaso('error');
+    }
+  }
 
   async function finalizarRegistro(selfieDesc: Float32Array) {
     try {
-      // Comparar localmente
       if (!ineDescriptor) throw new Error('Sin descriptor de INE');
-      const dist = faceapi.euclideanDistance(ineDescriptor, selfieDesc);
-      if (dist >= 0.60) {
-        setError(`Tu rostro no coincide con la foto de la INE (distancia ${dist.toFixed(3)}). Intenta de nuevo con mejor iluminación.`);
+      const fa = (window as any).faceapi;
+      const dist = fa.euclideanDistance(ineDescriptor, selfieDesc);
+      if (dist >= 0.62) {
+        setError(`Tu rostro no coincide con la foto de la INE (distancia: ${dist.toFixed(3)}). Intenta con mejor iluminación o una foto más clara de la INE.`);
         setPaso('error');
         return;
       }
-
       const regToken = sessionStorage.getItem('forumnl_reg_token');
-      if (!regToken) {
-        setError('Sesión de registro expirada. Vuelve a iniciar el proceso.');
-        setPaso('error');
-        return;
-      }
-
-      // El embedding que se guarda en BD es el del INE (referencia)
+      if (!regToken) { setError('Sesión expirada. Vuelve al inicio.'); setPaso('error'); return; }
       const r = await fetch('/api/auth/register/finalizar', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -175,11 +70,7 @@ export default function OnboardingPage() {
         }),
       });
       const json = await r.json();
-      if (!r.ok || !json.ok) {
-        setError(json.message || 'Error al finalizar el registro.');
-        setPaso('error');
-        return;
-      }
+      if (!r.ok || !json.ok) { setError(json.message || 'Error al registrar.'); setPaso('error'); return; }
       sessionStorage.removeItem('forumnl_reg_token');
       setPaso('exito');
     } catch (e: any) {
@@ -187,69 +78,159 @@ export default function OnboardingPage() {
       setPaso('error');
     }
   }
-}
-
-// =============================================================================
-// Sub-componentes
-// =============================================================================
-
-function Indicador({ paso }: { paso: Paso }) {
-  const pasos = ['INE', 'Datos', 'Rostro', 'Listo'];
-  const indiceActual =
-    paso === 'instrucciones' || paso === 'ine' ? 0 :
-    paso === 'datos' ? 1 :
-    paso === 'selfie' || paso === 'procesando' ? 2 :
-    paso === 'exito' ? 3 : 0;
 
   return (
-    <ol className="flex items-center mb-6 text-xs">
-      {pasos.map((p, i) => (
-        <li key={p} className="flex items-center flex-1">
-          <span className={`w-7 h-7 rounded-full flex items-center justify-center font-semibold ${
-            i < indiceActual ? 'bg-green-600 text-white' :
-            i === indiceActual ? 'bg-ieepc-black text-white' :
-            'bg-ieepc-gray-light text-ieepc-gray'
-          }`}>
-            {i < indiceActual ? '✓' : i + 1}
-          </span>
-          <span className={`ml-2 ${i === indiceActual ? 'font-medium text-ieepc-black' : 'text-ieepc-gray'}`}>{p}</span>
-          {i < pasos.length - 1 && <span className="flex-1 h-px bg-ieepc-gray-light mx-2" />}
-        </li>
-      ))}
-    </ol>
+    <div className="min-h-screen bg-white">
+      {/* Header amarillo */}
+      <div className="w-full py-4 px-4 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#F5C518,#FFD740)' }}>
+        <Link href="/register" className="text-[#1A1A1A] hover:opacity-70">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-ieepc.png" alt="IEEPCNL" style={{ height: '36px', width: 'auto', mixBlendMode: 'multiply' }} />
+        <span className="font-black text-[#1A1A1A]">Verificación de identidad</span>
+      </div>
+
+      <div className="max-w-lg mx-auto px-4 py-6">
+        <StepIndicator paso={paso} />
+
+        {paso === 'cargando' && <PantallaCargando progreso={progreso} />}
+        {paso === 'instrucciones' && <PantallaInstrucciones onContinuar={() => setPaso('ine')} />}
+        {paso === 'ine' && (
+          <CapturaIne
+            onCapturado={(canvas, descriptor, datos) => {
+              setIneCanvas(canvas);
+              setIneDescriptor(descriptor);
+              setDatosIne(datos);
+              setPaso('datos');
+            }}
+            onError={(msg) => { setError(msg); setPaso('error'); }}
+          />
+        )}
+        {paso === 'datos' && (
+          <ConfirmarDatos
+            datos={datosIne}
+            ineCanvas={ineCanvas}
+            onActualizar={setDatosIne}
+            onAtras={() => setPaso('ine')}
+            onContinuar={() => setPaso('selfie')}
+          />
+        )}
+        {paso === 'selfie' && (
+          <CapturaSelfie
+            onCapturado={async (descriptor) => {
+              setSelfieDescriptor(descriptor);
+              setPaso('procesando');
+              await finalizarRegistro(descriptor);
+            }}
+            onError={(msg) => { setError(msg); setPaso('error'); }}
+          />
+        )}
+        {paso === 'procesando' && (
+          <div className="card p-10 text-center">
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-[#F5C518]" />
+            <p className="font-bold text-lg">Verificando identidad…</p>
+            <p className="text-sm text-[#6B7280] mt-1">Comparando rostros, un momento.</p>
+          </div>
+        )}
+        {paso === 'exito' && (
+          <div className="card p-10 text-center">
+            <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-green-500" />
+            <h2 className="text-2xl font-extrabold mb-2">¡Registro exitoso!</h2>
+            <p className="text-[#6B7280] mb-8">Bienvenido a FórumNL. Tu identidad fue verificada.</p>
+            <button onClick={() => router.push('/home')} className="btn-yellow px-10 py-3 text-base">
+              Ir al inicio →
+            </button>
+          </div>
+        )}
+        {paso === 'error' && (
+          <div className="card p-10 text-center">
+            <XCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
+            <h2 className="text-xl font-bold mb-2">Algo salió mal</h2>
+            <p className="text-[#6B7280] mb-8 text-sm max-w-xs mx-auto">{error}</p>
+            <button onClick={() => { setError(null); setPaso('ine'); }} className="btn-yellow px-8 py-3">
+              <RefreshCw className="w-4 h-4" /> Reintentar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
+/* ── Indicador de pasos ──────────────────────────────── */
+function StepIndicator({ paso }: { paso: Paso }) {
+  const labels = ['INE', 'Datos', 'Selfie', 'Listo'];
+  const idx = ['cargando','instrucciones','ine','preview_ine'].includes(paso) ? 0 :
+               paso === 'datos' ? 1 :
+               ['selfie','preview_selfie','procesando'].includes(paso) ? 2 : 3;
+  return (
+    <div className="flex items-center mb-8">
+      {labels.map((label, i) => (
+        <div key={label} className="flex items-center flex-1 last:flex-none">
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                i < idx ? 'bg-green-500 text-white' : i === idx ? 'text-[#1A1A1A]' : 'bg-[#F3F4F6] text-[#9CA3AF]'
+              }`}
+              style={i === idx ? { background: 'linear-gradient(135deg,#F5C518,#E6B800)' } : {}}
+            >
+              {i < idx ? '✓' : i + 1}
+            </div>
+            <span className={`text-[10px] mt-1 font-semibold ${i === idx ? 'text-[#1A1A1A]' : 'text-[#9CA3AF]'}`}>{label}</span>
+          </div>
+          {i < labels.length - 1 && (
+            <div className={`flex-1 h-0.5 mx-2 mb-5 ${i < idx ? 'bg-green-400' : 'bg-[#E5E7EB]'}`} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Pantalla de carga ───────────────────────────────── */
+function PantallaCargando({ progreso }: { progreso: string }) {
+  return (
+    <div className="card p-10 text-center">
+      <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-[#F5C518]" />
+      <p className="font-semibold">{progreso}</p>
+      <p className="text-xs text-[#9CA3AF] mt-1">Primera carga: ~10 MB. Solo una vez por sesión.</p>
+    </div>
+  );
+}
+
+/* ── Instrucciones ───────────────────────────────────── */
 function PantallaInstrucciones({ onContinuar }: { onContinuar: () => void }) {
   return (
-    <div className="card p-6 text-center">
-      <div className="text-5xl mb-3">🪪</div>
-      <h2 className="text-xl font-bold mb-2">Verifica tu identidad</h2>
-      <p className="text-ieepc-gray text-sm mb-6 max-w-md mx-auto">
-        Necesitamos comprobar que tú eres el titular de la credencial INE.
-        Esto toma menos de 2 minutos. Tendrás dos pasos:
-      </p>
-      <ol className="text-left max-w-md mx-auto mb-6 space-y-2 text-sm">
-        <li className="flex gap-3">
-          <span className="font-bold text-ieepc-yellow-dark">1.</span>
-          <span>Tomamos una foto del <strong>frente</strong> de tu credencial INE.</span>
-        </li>
-        <li className="flex gap-3">
-          <span className="font-bold text-ieepc-yellow-dark">2.</span>
-          <span>Capturamos una <strong>selfie</strong> y comparamos los rostros.</span>
-        </li>
-      </ol>
-      <button onClick={onContinuar} className="btn-yellow">
-        <Camera className="w-4 h-4" /> Comenzar
+    <div className="card p-7">
+      <div className="text-center mb-7">
+        <div className="text-5xl mb-3">🪪</div>
+        <h2 className="text-2xl font-extrabold">Verifica tu identidad</h2>
+        <p className="text-[#6B7280] text-sm mt-2">Proceso rápido en 3 pasos.</p>
+      </div>
+      <div className="space-y-3 mb-8">
+        {[
+          { emoji: '📸', title: 'Foto del frente de tu INE', desc: 'Coloca la credencial frente a la cámara y toma la foto.' },
+          { emoji: '✏️', title: 'Confirma tus datos', desc: 'Revisa y corrige la información extraída.' },
+          { emoji: '🤳', title: 'Selfie de verificación', desc: 'Tomamos tu foto para comparar con la INE.' },
+        ].map((s) => (
+          <div key={s.title} className="flex gap-3 p-3.5 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB]">
+            <span className="text-2xl">{s.emoji}</span>
+            <div>
+              <p className="font-semibold text-sm">{s.title}</p>
+              <p className="text-xs text-[#6B7280]">{s.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={onContinuar} className="btn-yellow w-full py-3.5 text-base">
+        Comenzar →
       </button>
     </div>
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// Captura de INE (cámara o archivo)
-// ────────────────────────────────────────────────────────────────────────
-
+/* ── Captura INE — FLUJO SIMPLIFICADO ────────────────── */
 function CapturaIne({
   onCapturado,
   onError,
@@ -258,497 +239,462 @@ function CapturaIne({
   onError: (msg: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const overlayRef = useRef<HTMLCanvasElement>(null);
-  const [status, setStatus] = useState('Iniciando cámara...');
-  const [statusType, setStatusType] = useState<'normal' | 'detecting' | 'success' | 'error'>('normal');
+  const [camActiva, setCamActiva] = useState(false);
   const [procesando, setProcesando] = useState(false);
+  const [mensaje, setMensaje] = useState('Inicia la cámara o sube una foto de tu INE.');
+  const [msgTipo, setMsgTipo] = useState<'normal' | 'ok' | 'error'>('normal');
   const streamRef = useRef<MediaStream | null>(null);
-  const stoppedRef = useRef(false);
 
-  useEffect(() => {
-    iniciarCamara();
-    return () => { stoppedRef.current = true; streamRef.current?.getTracks().forEach(t => t.stop()); };
-  }, []);
+  function setMsg(t: string, tipo: 'normal' | 'ok' | 'error' = 'normal') { setMensaje(t); setMsgTipo(tipo); }
 
   async function iniciarCamara() {
     try {
+      setMsg('Solicitando acceso a la cámara…');
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await new Promise<void>((resolve) => {
-          videoRef.current!.onloadedmetadata = () => { videoRef.current!.play(); resolve(); };
-        });
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current!.play();
+          setCamActiva(true);
+          setMsg('Cámara lista. Coloca el frente de tu INE y toma la foto.');
+        };
       }
-      loopDeteccion();
     } catch (e: any) {
-      setStatus('No se pudo abrir la cámara. Sube una foto de tu INE en su lugar.');
-      setStatusType('error');
+      setMsg('No se pudo abrir la cámara. Usa el botón "Subir foto" en su lugar.', 'error');
     }
   }
 
-  function loopDeteccion() {
-    let stableCount = 0;
-    let lastCorners: any = null;
-    let detectionStart: number | null = null;
-    let totalFrames = 0, detectedFrames = 0;
-
-    const tick = async () => {
-      if (stoppedRef.current || procesando) return;
-      const video = videoRef.current;
-      const overlay = overlayRef.current;
-      if (!video || !overlay || video.readyState < 2) { setTimeout(tick, 150); return; }
-
-      if (overlay.width !== video.videoWidth) overlay.width = video.videoWidth;
-      if (overlay.height !== video.videoHeight) overlay.height = video.videoHeight;
-
-      totalFrames++;
-      const corners = detectarRectangulo(video);
-
-      if (corners) {
-        detectedFrames++;
-        lastCorners = corners;
-        stableCount = Math.min(4, stableCount + 1);
-        if (!detectionStart) detectionStart = Date.now();
-        dibujarCorners(overlay, corners, stableCount);
-        const pct = Math.min(100, Math.round(stableCount / 4 * 100));
-        setStatus(`Credencial detectada (${pct}%)`);
-        setStatusType('detecting');
-
-        if (stableCount >= 4) {
-          setStatus('¡Capturando!');
-          setStatusType('success');
-          await new Promise(r => setTimeout(r, 200));
-          procesar(video, corners);
-          return;
-        }
-      } else {
-        stableCount = Math.max(0, stableCount - 0.4);
-        if (stableCount === 0) {
-          overlay.getContext('2d')!.clearRect(0, 0, overlay.width, overlay.height);
-          setStatus('Coloca la credencial frente a la cámara o sube una foto.');
-          setStatusType('normal');
-        }
-      }
-
-      // Fallback tras 3.5s
-      if (detectionStart && Date.now() - detectionStart > 3500 && detectedFrames / totalFrames > 0.4 && lastCorners) {
-        setStatus('¡Capturando!'); setStatusType('success');
-        await new Promise(r => setTimeout(r, 150));
-        procesar(video, lastCorners);
-        return;
-      }
-
-      setTimeout(tick, 90);
-    };
-    tick();
-  }
-
-  async function procesar(video: HTMLVideoElement, corners: any) {
-    setProcesando(true);
+  function detenerCamara() {
     streamRef.current?.getTracks().forEach(t => t.stop());
-
-    // Snapshot del frame
-    const source = document.createElement('canvas');
-    source.width = video.videoWidth;
-    source.height = video.videoHeight;
-    source.getContext('2d')!.drawImage(video, 0, 0);
-
-    await procesarImagen(source, corners);
+    streamRef.current = null;
+    setCamActiva(false);
   }
 
-  async function subirArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+  async function tomarFoto() {
+    const video = videoRef.current;
+    if (!video || !camActiva) return;
+    detenerCamara();
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')!.drawImage(video, 0, 0);
+    await procesarImagen(canvas);
+  }
+
+  async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    stoppedRef.current = true;
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    setProcesando(true);
-
+    detenerCamara();
     try {
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('No se pudo cargar la imagen')); });
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      canvas.getContext('2d')!.drawImage(img, 0, 0);
-      URL.revokeObjectURL(img.src);
-
-      // Intentar detectar rectángulo en la foto
-      const corners = detectarRectanguloDeCanvas(canvas);
-      await procesarImagen(canvas, corners);
-    } catch (e: any) {
-      onError(e.message || 'Error al procesar la imagen');
+      const canvas = await fileToCanvas(file);
+      await procesarImagen(canvas);
+    } catch (err: any) {
+      onError(err.message || 'No se pudo cargar la imagen.');
     }
   }
 
-  async function procesarImagen(source: HTMLCanvasElement, corners: any) {
-    setStatus('Rectificando imagen...');
-    let rectified = source;
-    if (corners && (window as any).cv?.Mat) {
-      try { rectified = rectificar(source, corners); } catch (e) { /* usa source */ }
+  async function procesarImagen(canvas: HTMLCanvasElement) {
+    setProcesando(true);
+    setMsg('Buscando rostro en la credencial…');
+
+    const fa = (window as any).faceapi;
+    if (!fa) { onError('Face-api no está cargado.'); return; }
+
+    // Intentar con varios thresholds para capturar caras pequeñas (INE)
+    const opciones = [
+      { inputSize: 512 as 512, scoreThreshold: 0.20 },
+      { inputSize: 416 as 416, scoreThreshold: 0.15 },
+      { inputSize: 320 as 320, scoreThreshold: 0.10 },
+    ];
+
+    let detection: any = null;
+    for (const o of opciones) {
+      detection = await fa
+        .detectSingleFace(canvas, new fa.TinyFaceDetectorOptions(o))
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+      if (detection) break;
     }
 
-    setStatus('Detectando rostro en la INE...');
-    const det = await (window as any).faceapi
-      .detectSingleFace(rectified, new (window as any).faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.30 }))
-      .withFaceLandmarks()
-      .withFaceDescriptor();
-
-    if (!det) {
-      onError('No se detectó un rostro en la credencial. Intenta con mejor iluminación.');
+    if (!detection) {
+      setProcesando(false);
+      setMsg(
+        'No se detectó un rostro en la imagen. Asegúrate de que el frente de la INE esté bien visible y enfocado.',
+        'error'
+      );
+      setCamActiva(false); // Permitir reintentar
       return;
     }
 
-    setStatus('Extrayendo datos por OCR...');
-    let texto = '';
+    // OCR en background (no bloquea)
+    let datos = { nombreCompleto: '', curp: '', fechaNacimiento: '', sexo: '', domicilio: '' };
     try {
-      const Tesseract = (window as any).Tesseract;
-      const worker = await Tesseract.createWorker('spa');
-      const result = await worker.recognize(rectified);
-      texto = result.data.text;
-      await worker.terminate();
-    } catch (e) { /* OCR opcional */ }
+      const T = (window as any).Tesseract;
+      if (T) {
+        const worker = await T.createWorker('spa', 1, { logger: () => {} });
+        const res = await worker.recognize(canvas);
+        datos = parseIne(res.data.text);
+        await worker.terminate();
+      }
+    } catch {}
 
-    const datos = parseIne(texto);
-    onCapturado(rectified, det.descriptor as Float32Array, datos);
+    setMsg('¡Rostro detectado!', 'ok');
+    setProcesando(false);
+    onCapturado(canvas, detection.descriptor as Float32Array, datos);
   }
 
   return (
-    <div className="card p-4">
-      <h2 className="text-lg font-bold mb-1">Paso 1: Frente de tu INE</h2>
-      <p className="text-sm text-ieepc-gray mb-4">Coloca el frente de la credencial frente a la cámara o sube una foto.</p>
+    <div className="card overflow-hidden">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-3">
+        <h2 className="text-xl font-extrabold">Paso 1: Frente de tu INE</h2>
+        <p className="text-sm text-[#6B7280] mt-1">
+          Toma una foto del frente de tu credencial o súbela desde tu galería.
+        </p>
+      </div>
 
-      <div className="relative w-full bg-ieepc-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
-        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-        <canvas ref={overlayRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+      {/* Video o placeholder */}
+      <div className="relative bg-[#111] mx-5 rounded-2xl overflow-hidden" style={{ aspectRatio: '4/3' }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+        />
+        {!camActiva && !procesando && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#1A1A1A]">
+            <span className="text-5xl">🪪</span>
+            <p className="text-sm text-[#9CA3AF] text-center px-4">
+              Activa la cámara o sube una foto de tu INE
+            </p>
+          </div>
+        )}
         {procesando && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <Loader2 className="w-10 h-10 text-white animate-spin" />
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-10 h-10 text-[#F5C518] animate-spin" />
+            <p className="text-white text-sm">{mensaje}</p>
+          </div>
+        )}
+        {/* Guía visual de posicionamiento */}
+        {camActiva && (
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div className="border-2 border-dashed border-[#F5C518]/70 rounded-lg" style={{ width: '82%', aspectRatio: '1.585' }} />
           </div>
         )}
       </div>
 
-      <div className={`mt-3 p-2.5 rounded-md text-sm ${
-        statusType === 'detecting' ? 'bg-yellow-50 text-yellow-800' :
-        statusType === 'success' ? 'bg-green-50 text-green-800' :
-        statusType === 'error' ? 'bg-red-50 text-red-800' :
-        'bg-gray-50 text-gray-700'
-      }`}>{status}</div>
+      {/* Mensaje de estado */}
+      <div className={`mx-5 mt-3 px-4 py-2.5 rounded-xl text-sm font-medium ${
+        msgTipo === 'ok' ? 'bg-green-50 text-green-800 border border-green-200' :
+        msgTipo === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+        'bg-[#F9FAFB] text-[#6B7280]'
+      }`}>
+        {mensaje}
+      </div>
 
-      <div className="mt-3 flex gap-2">
-        <label className="btn-outline cursor-pointer flex-1 justify-center">
-          <Upload className="w-4 h-4" /> Subir foto
-          <input type="file" accept="image/*" className="hidden" onChange={subirArchivo} />
-        </label>
+      {/* Botones de acción */}
+      <div className="p-5 space-y-3">
+        {!camActiva && !procesando && (
+          <button
+            onClick={iniciarCamara}
+            className="btn-yellow w-full py-3.5 text-base font-bold"
+          >
+            <Camera className="w-5 h-5" /> Activar cámara
+          </button>
+        )}
+
+        {camActiva && !procesando && (
+          <button
+            onClick={tomarFoto}
+            className="btn-yellow w-full py-4 text-lg font-black"
+            style={{ boxShadow: '0 4px 20px rgba(245,197,24,0.4)' }}
+          >
+            📸 Tomar foto de la INE
+          </button>
+        )}
+
+        {/* Subir foto siempre disponible */}
+        {!procesando && (
+          <label className="btn-outline w-full justify-center cursor-pointer py-3">
+            <Upload className="w-4 h-4" />
+            {camActiva ? 'O sube una foto guardada' : 'Subir foto de la INE'}
+            <input type="file" accept="image/*" className="hidden" onChange={subirFoto} />
+          </label>
+        )}
+
+        {camActiva && !procesando && (
+          <button onClick={detenerCamara} className="btn-ghost w-full text-sm">
+            Cancelar cámara
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
+/* ── Confirmar datos ─────────────────────────────────── */
 function ConfirmarDatos({ datos, ineCanvas, onActualizar, onAtras, onContinuar }: any) {
   return (
     <div className="card p-6">
-      <h2 className="text-lg font-bold mb-1">Paso 2: Verifica tus datos</h2>
-      <p className="text-sm text-ieepc-gray mb-4">
-        Revisa la información extraída de tu INE. Puedes corregir lo que sea necesario.
-        <strong className="block text-xs mt-1 text-ieepc-gray">
-          Nota: la colonia se asignará automáticamente a "Las Lomas del Sur".
-        </strong>
+      <h2 className="text-xl font-extrabold mb-1">Confirma tus datos</h2>
+      <p className="text-sm text-[#6B7280] mb-4">
+        Verifica la información extraída de tu INE y corrige lo necesario.
       </p>
 
-      <div className="space-y-3 mb-6">
-        <Campo label="Nombre completo *" value={datos.nombreCompleto}
-          onChange={(v) => onActualizar({ ...datos, nombreCompleto: v })} required />
-        <Campo label="CURP" value={datos.curp}
-          onChange={(v) => onActualizar({ ...datos, curp: v.toUpperCase() })} />
+      {ineCanvas && (
+        <div className="mb-5 rounded-xl overflow-hidden border border-[#E5E7EB]">
+          <canvas
+            ref={(ref) => {
+              if (ref && ineCanvas) {
+                ref.width = ineCanvas.width;
+                ref.height = ineCanvas.height;
+                ref.getContext('2d')!.drawImage(ineCanvas, 0, 0);
+              }
+            }}
+            className="w-full"
+          />
+        </div>
+      )}
+
+      <div className="space-y-4 mb-6">
+        <div>
+          <label className="label">Nombre completo *</label>
+          <input
+            type="text"
+            className="input"
+            value={datos.nombreCompleto}
+            onChange={(e) => onActualizar({ ...datos, nombreCompleto: e.target.value })}
+            placeholder="Como aparece en tu INE"
+            required
+          />
+        </div>
+        <div>
+          <label className="label">CURP</label>
+          <input
+            type="text"
+            className="input font-mono"
+            value={datos.curp}
+            onChange={(e) => onActualizar({ ...datos, curp: e.target.value.toUpperCase() })}
+            placeholder="18 caracteres"
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <Campo label="Fecha nacimiento" value={datos.fechaNacimiento}
-            onChange={(v) => onActualizar({ ...datos, fechaNacimiento: v })} type="date" />
+          <div>
+            <label className="label">Fecha nacimiento</label>
+            <input type="date" className="input" value={datos.fechaNacimiento}
+              onChange={(e) => onActualizar({ ...datos, fechaNacimiento: e.target.value })} />
+          </div>
           <div>
             <label className="label">Sexo</label>
-            <select className="input" value={datos.sexo} onChange={(e) => onActualizar({ ...datos, sexo: e.target.value })}>
-              <option value="">—</option>
+            <select className="input" value={datos.sexo}
+              onChange={(e) => onActualizar({ ...datos, sexo: e.target.value })}>
+              <option value="">— Seleccionar —</option>
               <option value="Hombre">Hombre</option>
               <option value="Mujer">Mujer</option>
             </select>
           </div>
         </div>
-        <Campo label="Domicilio" value={datos.domicilio}
-          onChange={(v) => onActualizar({ ...datos, domicilio: v })} />
+        <div>
+          <label className="label">Domicilio</label>
+          <input type="text" className="input" value={datos.domicilio}
+            onChange={(e) => onActualizar({ ...datos, domicilio: e.target.value })}
+            placeholder="Colonia Las Lomas del Sur (se asigna automáticamente)" />
+        </div>
       </div>
 
       <div className="flex gap-3">
-        <button onClick={onAtras} className="btn-outline flex-1 justify-center">Volver a capturar</button>
+        <button onClick={onAtras} className="btn-outline flex-1 justify-center">
+          Volver a capturar
+        </button>
         <button onClick={onContinuar} disabled={!datos.nombreCompleto} className="btn-yellow flex-1 justify-center">
-          Continuar
+          Continuar →
         </button>
       </div>
     </div>
   );
 }
 
-function Campo({ label, value, onChange, type = 'text', required }: any) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-      <input type={type} className="input" value={value || ''} onChange={(e) => onChange(e.target.value)} required={required} />
-    </div>
-  );
-}
-
+/* ── Captura Selfie — también simplificada ───────────── */
 function CapturaSelfie({ onCapturado, onError }: any) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [status, setStatus] = useState('Iniciando cámara...');
-  const [statusType, setStatusType] = useState<'normal'|'detecting'|'success'>('normal');
+  const [camActiva, setCamActiva] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+  const [mensaje, setMensaje] = useState('Activa la cámara y toma tu selfie.');
+  const [msgTipo, setMsgTipo] = useState<'normal' | 'ok' | 'error'>('normal');
   const streamRef = useRef<MediaStream | null>(null);
-  const stoppedRef = useRef(false);
 
-  useEffect(() => {
-    iniciar();
-    return () => { stoppedRef.current = true; streamRef.current?.getTracks().forEach(t => t.stop()); };
-  }, []);
-
-  async function iniciar() {
+  async function iniciarCamara() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        video: { facingMode: 'user', width: { ideal: 1280 } },
         audio: false,
       });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await new Promise<void>((res) => { videoRef.current!.onloadedmetadata = () => { videoRef.current!.play(); res(); }; });
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current!.play();
+          setCamActiva(true);
+          setMensaje('Mira directamente a la cámara y toma la foto.');
+          setMsgTipo('normal');
+        };
       }
-      detectar();
-    } catch (e) {
-      onError('No se pudo abrir la cámara para la selfie.');
+    } catch {
+      setMensaje('No se pudo abrir la cámara frontal.', 'error' as any);
     }
   }
 
-  function detectar() {
-    let stable = 0;
-    let detStart: number | null = null;
-    let total = 0, detected = 0;
-    const tick = async () => {
-      if (stoppedRef.current) return;
-      const video = videoRef.current;
-      if (!video || video.readyState < 2) { setTimeout(tick, 100); return; }
-      total++;
-      const d = await (window as any).faceapi
-        .detectSingleFace(video, new (window as any).faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 }))
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-      if (d) {
-        detected++;
-        stable = Math.min(6, stable + 1);
-        if (!detStart) detStart = Date.now();
-        const pct = Math.round(stable / 6 * 100);
-        setStatus(`Rostro detectado (${pct}%)`);
-        setStatusType('detecting');
-        if (stable >= 6) {
-          setStatus('¡Capturando!'); setStatusType('success');
-          stoppedRef.current = true;
-          streamRef.current?.getTracks().forEach(t => t.stop());
-          setTimeout(() => onCapturado(d.descriptor), 200);
-          return;
-        }
-      } else {
-        stable = Math.max(0, stable - 0.5);
-        setStatus('Mira a la cámara con buena iluminación.');
-        setStatusType('normal');
-      }
-      if (detStart && Date.now() - detStart > 3500 && detected / total > 0.5 && d) {
-        stoppedRef.current = true;
-        streamRef.current?.getTracks().forEach(t => t.stop());
-        setTimeout(() => onCapturado(d.descriptor), 100);
-        return;
-      }
-      setTimeout(tick, 90);
-    };
-    tick();
+  async function tomarFoto() {
+    const video = videoRef.current;
+    if (!video) return;
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    setCamActiva(false);
+    setProcesando(true);
+    setMensaje('Detectando rostro…');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    // Capturar en espejo
+    const ctx = canvas.getContext('2d')!;
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+
+    const fa = (window as any).faceapi;
+    const detection = await fa
+      .detectSingleFace(canvas, new fa.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) {
+      setProcesando(false);
+      setMensaje('No se detectó tu rostro. Asegúrate de estar bien iluminado y mirando a la cámara.', 'error' as any);
+      return;
+    }
+
+    setMensaje('¡Selfie capturada!', 'ok' as any);
+    setProcesando(false);
+    onCapturado(detection.descriptor as Float32Array);
   }
 
   return (
-    <div className="card p-4">
-      <h2 className="text-lg font-bold mb-1">Paso 3: Tu rostro</h2>
-      <p className="text-sm text-ieepc-gray mb-4">Mira directamente a la cámara.</p>
-      <div className="relative w-full bg-ieepc-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
-        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+    <div className="card overflow-hidden">
+      <div className="px-5 pt-5 pb-3">
+        <h2 className="text-xl font-extrabold">Paso 3: Tu selfie</h2>
+        <p className="text-sm text-[#6B7280] mt-1">
+          Mira directamente a la cámara, en un lugar bien iluminado.
+        </p>
       </div>
-      <div className={`mt-3 p-2.5 rounded-md text-sm ${
-        statusType === 'detecting' ? 'bg-yellow-50 text-yellow-800' :
-        statusType === 'success' ? 'bg-green-50 text-green-800' :
-        'bg-gray-50 text-gray-700'
-      }`}>{status}</div>
+
+      <div className="relative bg-[#111] mx-5 rounded-2xl overflow-hidden" style={{ aspectRatio: '4/3' }}>
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+        />
+        {!camActiva && !procesando && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1A1A1A] gap-3">
+            <span className="text-5xl">🤳</span>
+            <p className="text-sm text-[#9CA3AF]">Activa la cámara frontal</p>
+          </div>
+        )}
+        {procesando && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 text-[#F5C518] animate-spin" />
+          </div>
+        )}
+        {camActiva && (
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div className="border-2 border-dashed border-white/50 rounded-full" style={{ width: '55%', aspectRatio: '3/4' }} />
+          </div>
+        )}
+      </div>
+
+      <div className={`mx-5 mt-3 px-4 py-2.5 rounded-xl text-sm font-medium ${
+        msgTipo === 'ok' ? 'bg-green-50 text-green-800 border border-green-200' :
+        msgTipo === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+        'bg-[#F9FAFB] text-[#6B7280]'
+      }`}>
+        {mensaje}
+      </div>
+
+      <div className="p-5 space-y-3">
+        {!camActiva && !procesando && (
+          <button onClick={iniciarCamara} className="btn-yellow w-full py-3.5 text-base font-bold">
+            <Camera className="w-5 h-5" /> Activar cámara frontal
+          </button>
+        )}
+        {camActiva && !procesando && (
+          <button onClick={tomarFoto} className="btn-yellow w-full py-4 text-lg font-black">
+            📸 Tomar selfie
+          </button>
+        )}
+        {!procesando && msgTipo === 'error' && (
+          <button onClick={() => { setMensaje('Activa la cámara y toma tu selfie.'); setMsgTipo('normal'); }} className="btn-ghost w-full">
+            <RefreshCw className="w-4 h-4" /> Reintentar
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-// =============================================================================
-// Helpers de visión por computadora (compartidos)
-// =============================================================================
-
-function loadScript(src: string, opts?: { waitForCv?: boolean }): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+/* ── Helpers ─────────────────────────────────────────── */
+function loadScript(src: string): Promise<void> {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
     const s = document.createElement('script');
     s.src = src; s.async = true;
-    s.onload = () => {
-      if (opts?.waitForCv) {
-        const ready = () => {
-          if ((window as any).cv?.Mat) resolve();
-          else if ((window as any).cv) (window as any).cv.onRuntimeInitialized = resolve;
-          else setTimeout(ready, 50);
-        };
-        ready();
-      } else resolve();
-    };
-    s.onerror = () => reject(new Error('Falló cargar ' + src));
+    s.onload = () => res();
+    s.onerror = () => rej(new Error('Falló: ' + src));
     document.head.appendChild(s);
   });
 }
 
-const _vidCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
-function detectarRectangulo(video: HTMLVideoElement) {
-  if (!(window as any).cv?.Mat || !_vidCanvas) return null;
-  _vidCanvas.width = video.videoWidth;
-  _vidCanvas.height = video.videoHeight;
-  _vidCanvas.getContext('2d')!.drawImage(video, 0, 0);
-  return detectarRectanguloDeCanvas(_vidCanvas);
-}
-
-function detectarRectanguloDeCanvas(canvas: HTMLCanvasElement) {
-  const cv = (window as any).cv;
-  if (!cv?.Mat) return null;
-  let src, small, gray, blur, edges, ctrs, hier, kernel;
-  try {
-    src = cv.imread(canvas);
-    const tw = 480; const scale = tw / src.cols;
-    small = new cv.Mat();
-    cv.resize(src, small, new cv.Size(tw, Math.round(src.rows * scale)));
-    gray = new cv.Mat(); blur = new cv.Mat(); edges = new cv.Mat();
-    ctrs = new cv.MatVector(); hier = new cv.Mat();
-    kernel = cv.Mat.ones(3,3, cv.CV_8U);
-    cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(gray, blur, new cv.Size(5,5), 0);
-    cv.Canny(blur, edges, 40, 150);
-    cv.dilate(edges, edges, kernel);
-    cv.findContours(edges, ctrs, hier, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-    const fa = small.rows * small.cols;
-    let best = null, bestArea = 0;
-    for (let i = 0; i < ctrs.size(); i++) {
-      const c = ctrs.get(i);
-      const peri = cv.arcLength(c, true);
-      const ap = new cv.Mat();
-      cv.approxPolyDP(c, ap, 0.02 * peri, true);
-      if (ap.rows === 4 && cv.isContourConvex(ap)) {
-        const area = cv.contourArea(ap);
-        if (area > fa * 0.06 && area > bestArea) {
-          const pts = [];
-          for (let j = 0; j < 4; j++) pts.push({ x: ap.data32S[j*2], y: ap.data32S[j*2+1] });
-          const ord = orderCorners(pts);
-          const dims = quadDims(ord);
-          const ratio = Math.max(dims.w, dims.h) / Math.min(dims.w, dims.h);
-          if (ratio >= 1.20 && ratio <= 2.10) {
-            best = ord.map(p => ({ x: p.x / scale, y: p.y / scale }));
-            bestArea = area;
-          }
-        }
-      }
-      ap.delete(); c.delete();
-    }
-    return best;
-  } catch { return null; }
-  finally { [src, small, gray, blur, edges, ctrs, hier, kernel].forEach(o => o && o.delete && o.delete()); }
-}
-
-function orderCorners(pts: any[]) {
-  const s = pts.map(p => p.x + p.y);
-  const d = pts.map(p => p.y - p.x);
-  return [pts[s.indexOf(Math.min(...s))], pts[d.indexOf(Math.min(...d))], pts[s.indexOf(Math.max(...s))], pts[d.indexOf(Math.max(...d))]];
-}
-function quadDims(c: any[]) {
-  const dist = (a: any, b: any) => Math.hypot(a.x - b.x, a.y - b.y);
-  return { w: (dist(c[0],c[1]) + dist(c[3],c[2])) / 2, h: (dist(c[0],c[3]) + dist(c[1],c[2])) / 2 };
-}
-
-function rectificar(canvas: HTMLCanvasElement, corners: any[]) {
-  const cv = (window as any).cv;
-  const W = 1100, H = Math.round(W / 1.585);
-  const src = cv.imread(canvas);
-  const sm = cv.matFromArray(4,1,cv.CV_32FC2, [
-    corners[0].x, corners[0].y, corners[1].x, corners[1].y,
-    corners[2].x, corners[2].y, corners[3].x, corners[3].y,
-  ]);
-  const dm = cv.matFromArray(4,1,cv.CV_32FC2, [0,0,W,0,W,H,0,H]);
-  const M = cv.getPerspectiveTransform(sm, dm);
-  const dst = new cv.Mat();
-  cv.warpPerspective(src, dst, M, new cv.Size(W,H));
-  const out = document.createElement('canvas');
-  cv.imshow(out, dst);
-  src.delete(); sm.delete(); dm.delete(); M.delete(); dst.delete();
-  return out;
-}
-
-function dibujarCorners(canvas: HTMLCanvasElement, corners: any[], stable: number) {
-  const ctx = canvas.getContext('2d')!;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.beginPath();
-  ctx.moveTo(corners[0].x, corners[0].y);
-  for (let i = 1; i < 4; i++) ctx.lineTo(corners[i].x, corners[i].y);
-  ctx.closePath();
-  const p = Math.min(1, stable / 4);
-  const r = Math.round(251 - 217*p), g = Math.round(191 + 6*p), b = Math.round(36 + 58*p);
-  ctx.lineWidth = 4; ctx.strokeStyle = `rgb(${r},${g},${b})`;
-  ctx.fillStyle = `rgba(${r},${g},${b},0.15)`;
-  ctx.fill(); ctx.stroke();
+function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext('2d')!.drawImage(img, 0, 0);
+      URL.revokeObjectURL(img.src);
+      resolve(c);
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Error al cargar imagen')); };
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 function parseIne(texto: string) {
   const upper = texto.toUpperCase();
   const out: any = { nombreCompleto: '', curp: '', fechaNacimiento: '', sexo: '', domicilio: '' };
-
   const curp = upper.match(/[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]{2}/);
   if (curp) out.curp = curp[0];
-
   const fecha = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (fecha) {
-    const [_, dd, mm, yyyy] = fecha;
-    out.fechaNacimiento = `${yyyy}-${mm}-${dd}`;
-  }
-
+  if (fecha) out.fechaNacimiento = `${fecha[3]}-${fecha[2]}-${fecha[1]}`;
   const sexo = upper.match(/SEXO\s*[:\-]?\s*([HM])\b/);
   if (sexo) out.sexo = sexo[1] === 'H' ? 'Hombre' : 'Mujer';
-
-  // Nombre: línea después de "NOMBRE"
   const lines = texto.split(/\n+/).map(l => l.trim()).filter(Boolean);
   const idxN = lines.findIndex(l => /^NOMBRE\b/i.test(l));
   if (idxN >= 0) {
-    const partes = [];
+    const pts: string[] = [];
     for (let i = idxN + 1; i < Math.min(idxN + 4, lines.length); i++) {
-      if (/^[A-ZÁÉÍÓÚÑ\s]{4,}$/i.test(lines[i]) && !/INSTITUTO|NACIONAL|ELECTORAL/i.test(lines[i])) {
-        partes.push(lines[i]);
-      } else break;
+      if (/^[A-ZÁÉÍÓÚÑ\s]{4,}$/i.test(lines[i]) && !/INSTITUTO|NACIONAL|ELECTORAL/i.test(lines[i])) pts.push(lines[i]);
+      else break;
     }
-    if (partes.length) out.nombreCompleto = partes.join(' ').replace(/\s+/g, ' ');
+    if (pts.length) out.nombreCompleto = pts.join(' ').replace(/\s+/g, ' ');
   }
-
-  // Domicilio
-  const idxD = lines.findIndex(l => /^DOMICILIO\b/i.test(l));
-  if (idxD >= 0) {
-    const partes = [];
-    for (let i = idxD + 1; i < Math.min(idxD + 4, lines.length); i++) {
-      if (lines[i].length > 4 && !/CURP|CLAVE|VIGENCIA|SEXO|FECHA|REGISTRO/i.test(lines[i])) {
-        partes.push(lines[i]);
-      } else break;
-    }
-    if (partes.length) out.domicilio = partes.join(', ');
-  }
-
   return out;
 }
